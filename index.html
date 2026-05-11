@@ -937,9 +937,9 @@ function installApp(){
 }
 function dismissInstall(){ document.getElementById('install-banner').style.display='none'; }
 
-/* ─── WORKERS PROXY URL ─────────────────── */
-const PROXY_URL = 'https://pr-response-enhancement.egoist-scott.workers.dev';
-A.key = 'proxy'; // 프록시 사용 시 키 불필요, 더미값으로 체크 통과
+/* ─── GEMINI API KEY ────────────────────── */
+const GEMINI_API_KEY = 'AIzaSyCLxPLT9-dtuWzSVa4xkrUXeA9aFizlL60';
+A.key = 'gemini';
 
 /* ─── SELECTION ────────────────────────── */
 function setMode(m){
@@ -1077,14 +1077,15 @@ async function evalQ(question,answer,situation,diff,qt,unit){
 [난이도]${dl}
 JSON만 출력(마크다운 없이):{"fb":"즉시피드백25자이내","sc":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0}}
 각0~100. 신속대응=소속이름명확, 정확성=사실기반, 태도=침착비폐쇄, 정보보안=미확인비노출, 홍보계보고=홍보계일원화언급`;
-  const r=await fetch(PROXY_URL,{
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:250,messages:[{role:'user',content:p}]})
+    body:JSON.stringify({contents:[{parts:[{text:p}]}],generationConfig:{temperature:0.3,maxOutputTokens:300}})
   });
   if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'err');}
   const d=await r.json();
-  return JSON.parse(d.content[0].text.trim().replace(/```json|```/g,'').trim());
+  const text=d.candidates[0].content.parts[0].text.trim().replace(/```json|```/g,'').trim();
+  return JSON.parse(text);
 }
 
 /* ─── FINISH ───────────────────────────── */
@@ -1105,14 +1106,15 @@ async function showRes(ld){
 [QA]
 ${A.qs.map((q,i)=>'Q'+(i+1)+':'+q.q+'\nA'+(i+1)+':'+(A.ans[i]||'(무응답)')).join('\n')}
 JSON:{"ts":0,"gr":"A","gc":"총평15자이내","oc":"종합40자이내","cs":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0},"st":["강점1","강점2"],"im":["개선1","개선2","개선3"],"mp":["모범패턴1","모범패턴2"]}`;
-  const r=await fetch(PROXY_URL,{
+  const r=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:p}]})
+    body:JSON.stringify({contents:[{parts:[{text:p}]}],generationConfig:{temperature:0.3,maxOutputTokens:700}})
   });
   if(!r.ok) throw new Error('err');
   const d=await r.json();
-  const j=JSON.parse(d.content[0].text.trim().replace(/```json|```/g,'').trim());
+  const text=d.candidates[0].content.parts[0].text.trim().replace(/```json|```/g,'').trim();
+  const j=JSON.parse(text);
   ld.remove();
   renderRes(j);
 }
