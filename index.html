@@ -1,0 +1,1253 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#0a2540">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="언론대응훈련">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="description" content="해양경찰 중부청 언론질의 대응 역량강화 훈련 시뮬레이터">
+<title>언론대응훈련 · 해양경찰 중부청</title>
+
+<!-- PWA Manifest inline -->
+<script>
+const manifest = {
+  name: "언론질의 대응 훈련 시뮬레이터",
+  short_name: "언론대응훈련",
+  description: "해양경찰 중부청 언론질의 대응 역량강화 훈련 프로그램",
+  start_url: ".",
+  display: "standalone",
+  background_color: "#0a2540",
+  theme_color: "#0a2540",
+  orientation: "portrait",
+  icons: [{ src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%230a2540'/><text y='.9em' font-size='80' x='10'>🚢</text></svg>", sizes: "any", type: "image/svg+xml" }]
+};
+const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
+const murl = URL.createObjectURL(blob);
+document.write('<link rel="manifest" href="'+murl+'">');
+</script>
+
+<style>
+/* ─────────────────────────────────────────
+   TOKENS & RESET
+───────────────────────────────────────── */
+:root {
+  --navy:    #0a2540;
+  --navy1:   #0d2e4d;
+  --navy2:   #153d66;
+  --blue:    #1e7fd4;
+  --blue2:   #0a5fa8;
+  --gold:    #f0a820;
+  --green:   #18825a;
+  --red:     #c8352a;
+  --purple:  #7c4dba;
+  --teal:    #0f826e;
+
+  --bg:      #f2f4f7;
+  --surface: #ffffff;
+  --surf2:   #f7f9fb;
+  --border:  #dde2ea;
+  --txt:     #18202c;
+  --txt2:    #4a5568;
+  --txt3:    #8899aa;
+
+  --r:       12px;
+  --r-lg:    18px;
+  --shadow:  0 2px 12px rgba(10,37,64,.09);
+  --shadow2: 0 6px 24px rgba(10,37,64,.14);
+
+  /* safe area for notch phones */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bot: env(safe-area-inset-bottom, 0px);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+html {
+  font-size: 15px;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  background: var(--bg);
+  color: var(--txt);
+  min-height: 100dvh;
+  overscroll-behavior: none;
+  line-height: 1.6;
+}
+
+/* ─────────────────────────────────────────
+   APP SHELL
+───────────────────────────────────────── */
+#app {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+/* TOP BAR */
+.topbar {
+  background: var(--navy);
+  color: #fff;
+  padding: calc(var(--safe-top) + 14px) 16px 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  box-shadow: 0 2px 12px rgba(0,0,0,.2);
+}
+.topbar-icon {
+  font-size: 26px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.topbar-text h1 {
+  font-size: 0.88rem;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  line-height: 1.3;
+}
+.topbar-text p {
+  font-size: 0.68rem;
+  opacity: 0.6;
+  margin-top: 1px;
+}
+.topbar-back {
+  margin-left: auto;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+  color: #fff;
+  border-radius: 8px;
+  padding: 5px 11px;
+  font-size: 0.76rem;
+  cursor: pointer;
+  font-family: inherit;
+  flex-shrink: 0;
+  display: none;
+}
+
+/* SCROLL AREA */
+.scroll-area {
+  flex: 1;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 14px calc(var(--safe-bot) + 100px);
+}
+
+/* BOTTOM ACTION BAR */
+.bottom-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 12px 14px calc(var(--safe-bot) + 12px);
+  background: rgba(242,244,247,.92);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-top: 1px solid var(--border);
+  z-index: 90;
+}
+
+/* ─────────────────────────────────────────
+   SHARED COMPONENTS
+───────────────────────────────────────── */
+.section-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--txt3);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  margin-bottom: 9px;
+  padding-left: 2px;
+}
+
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 3px 9px;
+  border-radius: 20px;
+}
+.pill-blue   { background: #dbeeff; color: #004fa0; }
+.pill-red    { background: #ffe0de; color: #8a1a10; }
+.pill-gold   { background: #fff2d0; color: #7a5000; }
+.pill-teal   { background: #d0f5ea; color: #0a5a40; }
+.pill-purple { background: #eeecff; color: #4a2090; }
+.pill-green  { background: #d8f5e8; color: #0a5a30; }
+
+/* ─────────────────────────────────────────
+   SCREEN: START
+───────────────────────────────────────── */
+/* API KEY */
+.api-card {
+  background: #fffbe6;
+  border: 1.5px solid #f0c840;
+  border-radius: var(--r-lg);
+  padding: 14px;
+  margin-bottom: 14px;
+}
+.api-card-title {
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #5a3a00;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.api-card p {
+  font-size: 0.76rem;
+  color: #6a4a00;
+  line-height: 1.55;
+  margin-bottom: 10px;
+}
+.api-card a { color: #8a5a00; }
+.api-input-row {
+  display: flex;
+  gap: 8px;
+}
+.api-input-row input {
+  flex: 1;
+  min-width: 0;
+  border: 1.5px solid #e0c060;
+  border-radius: 9px;
+  padding: 9px 11px;
+  font-size: 0.8rem;
+  background: #fffdf5;
+  color: var(--txt);
+  font-family: 'Courier New', monospace;
+  -webkit-appearance: none;
+}
+.api-input-row input:focus { outline: none; border-color: var(--gold); }
+.api-save {
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: 9px;
+  padding: 9px 14px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  -webkit-appearance: none;
+}
+.api-status { font-size: 0.74rem; margin-top: 6px; min-height: 18px; }
+.api-ok  { color: #1a7a4a; }
+.api-err { color: #c0392b; }
+
+/* MODE TABS */
+.mode-tabs {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  background: var(--surf2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+.mode-tab {
+  padding: 11px 8px;
+  border: none;
+  background: transparent;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--txt2);
+  cursor: pointer;
+  font-family: inherit;
+  border-right: 1px solid var(--border);
+  transition: all .15s;
+  -webkit-appearance: none;
+}
+.mode-tab:last-child { border-right: none; }
+.mode-tab.active { background: var(--navy); color: #fff; }
+
+/* SCENARIO & UNIT CARDS */
+.sel-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 9px;
+  margin-bottom: 4px;
+}
+.sel-card {
+  background: var(--surf2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  padding: 13px 11px;
+  cursor: pointer;
+  transition: all .15s;
+  -webkit-tap-highlight-color: transparent;
+  active-opacity: 0.7;
+}
+.sel-card:active { transform: scale(0.97); }
+.sel-card.sel { border-color: var(--blue); background: #e8f4ff; box-shadow: 0 0 0 3px rgba(30,127,212,.12); }
+.sel-card .icon { font-size: 22px; margin-bottom: 6px; line-height: 1; }
+.sel-card .name { font-size: 0.82rem; font-weight: 700; color: var(--txt); line-height: 1.3; }
+.sel-card .tag  { font-size: 0.7rem; color: var(--txt2); margin-top: 3px; line-height: 1.4; }
+
+/* 5-column unit grid */
+.unit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 9px;
+  margin-bottom: 4px;
+}
+.unit-card {
+  background: var(--surf2);
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  padding: 11px 8px;
+  cursor: pointer;
+  transition: all .15s;
+  text-align: center;
+}
+.unit-card:active { transform: scale(0.97); }
+.unit-card.sel { border-color: var(--blue); background: #e8f4ff; }
+.unit-card .u-icon { font-size: 20px; margin-bottom: 4px; }
+.unit-card .u-name { font-size: 0.76rem; font-weight: 700; color: var(--txt); line-height: 1.3; }
+.unit-card .u-tag  { font-size: 0.66rem; color: var(--txt2); margin-top: 2px; line-height: 1.3; }
+
+.info-box {
+  background: #e6f2ff;
+  border: 1px solid #b0d0f0;
+  border-radius: var(--r);
+  padding: 10px 12px;
+  font-size: 0.76rem;
+  color: #0a3a6a;
+  line-height: 1.5;
+  margin-top: 10px;
+  display: none;
+}
+
+/* OPTION CHIPS (qtype + diff) */
+.chip-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.chip {
+  border: 1.5px solid var(--border);
+  background: var(--surf2);
+  color: var(--txt2);
+  border-radius: var(--r);
+  padding: 10px 10px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  transition: all .15s;
+  -webkit-appearance: none;
+  line-height: 1.4;
+}
+.chip:active { transform: scale(0.97); }
+.chip .cl { font-weight: 700; font-size: 0.8rem; }
+.chip .cs { font-size: 0.68rem; opacity: .7; margin-top: 1px; }
+
+.chip.c-attack  { border-color:#c8352a; background:#fff0ee; color:#8a1a10; }
+.chip.c-info    { border-color:#18825a; background:#e8f8ee; color:#0a5a30; }
+.chip.c-sns     { border-color:#7c4dba; background:#f2eeff; color:#4a2090; }
+.chip.c-random  { border-color:#f0a820; background:#fff8e0; color:#7a5000; }
+.chip.c-d1      { border-color:#18825a; background:#e8f8ee; color:#0a5a30; }
+.chip.c-d2      { border-color:#f0a820; background:#fff8e0; color:#7a5000; }
+.chip.c-d3      { border-color:#c8352a; background:#fff0ee; color:#8a1a10; }
+
+/* PRIMARY BUTTON */
+.btn-primary {
+  width: 100%;
+  padding: 15px;
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: var(--r);
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  transition: opacity .15s;
+  -webkit-appearance: none;
+  letter-spacing: -0.2px;
+}
+.btn-primary:active { opacity: 0.82; transform: scale(0.99); }
+.btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ─────────────────────────────────────────
+   SCREEN: CHAT
+───────────────────────────────────────── */
+#screen-chat { display: none; }
+
+.progress-wrap {
+  background: var(--border);
+  border-radius: 10px;
+  height: 4px;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 4px;
+  background: var(--blue);
+  border-radius: 10px;
+  transition: width .4s ease;
+}
+
+.hint-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.hint-row input[type=checkbox] { width:17px; height:17px; cursor:pointer; flex-shrink:0; }
+.hint-row label { font-size:0.78rem; color:var(--txt2); cursor:pointer; line-height:1.4; }
+
+/* Message bubbles */
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  margin-bottom: 10px;
+}
+
+.bbl {
+  max-width: 90%;
+  padding: 10px 13px;
+  border-radius: 14px;
+  font-size: 0.86rem;
+  line-height: 1.65;
+  word-break: keep-all;
+}
+.bbl-reporter {
+  align-self: flex-start;
+  background: var(--navy);
+  color: #fff;
+  border-bottom-left-radius: 3px;
+}
+.bbl-reporter .rlabel {
+  font-size: 0.68rem;
+  color: rgba(255,255,255,.55);
+  margin-bottom: 4px;
+  font-weight: 700;
+  letter-spacing: .2px;
+}
+.bbl-user {
+  align-self: flex-end;
+  background: var(--blue);
+  color: #fff;
+  border-bottom-right-radius: 3px;
+}
+.bbl-system {
+  align-self: center;
+  color: var(--txt3);
+  font-size: 0.73rem;
+  text-align: center;
+  padding: 2px 6px;
+  max-width: 100%;
+  background: transparent;
+}
+.bbl-hint {
+  align-self: stretch;
+  background: #fff8e0;
+  border: 1.5px solid #f0c840;
+  border-radius: var(--r);
+  color: #6a4800;
+  font-size: 0.78rem;
+  padding: 9px 12px;
+  max-width: 100%;
+  line-height: 1.6;
+}
+
+/* Chat input area (above bottom bar) */
+.chat-input-wrap {
+  display: flex;
+  gap: 8px;
+  align-items: flex-end;
+}
+.chat-input-wrap textarea {
+  flex: 1;
+  min-width: 0;
+  border: 1.5px solid var(--border);
+  border-radius: var(--r);
+  padding: 10px 12px;
+  font-size: 0.86rem;
+  font-family: inherit;
+  resize: none;
+  min-height: 48px;
+  max-height: 110px;
+  background: var(--surface);
+  color: var(--txt);
+  line-height: 1.5;
+  -webkit-appearance: none;
+  overflow-y: auto;
+}
+.chat-input-wrap textarea:focus { outline: none; border-color: var(--blue); }
+.chat-send {
+  background: var(--navy);
+  color: #fff;
+  border: none;
+  border-radius: var(--r);
+  width: 48px;
+  height: 48px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  -webkit-appearance: none;
+  transition: opacity .15s;
+}
+.chat-send:active { opacity: .75; }
+.chat-send:disabled { opacity: .35; cursor: not-allowed; }
+
+/* q counter row */
+.q-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.q-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+.q-num { font-size: 0.75rem; color: var(--txt3); font-weight: 700; }
+
+/* ─────────────────────────────────────────
+   SCREEN: RESULT
+───────────────────────────────────────── */
+#screen-result { display: none; }
+
+.score-hero {
+  background: var(--navy);
+  color: #fff;
+  border-radius: var(--r-lg);
+  padding: 2rem 1.2rem 1.6rem;
+  text-align: center;
+  margin-bottom: 14px;
+  box-shadow: var(--shadow2);
+}
+.score-num {
+  font-size: 72px;
+  font-weight: 900;
+  line-height: 1;
+  margin-bottom: 8px;
+  letter-spacing: -3px;
+}
+.score-A { color: #5fe89c; }
+.score-B { color: #6ec6f8; }
+.score-C { color: #f8d060; }
+.score-D { color: #f87070; }
+.score-grade { font-size: 1rem; font-weight: 700; margin-bottom: 3px; opacity: .9; }
+.score-comment { font-size: 0.8rem; opacity: .65; line-height: 1.5; }
+
+.crit-scroll {
+  display: flex;
+  gap: 9px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 6px;
+  margin-bottom: 12px;
+  scrollbar-width: none;
+}
+.crit-scroll::-webkit-scrollbar { display: none; }
+.crit-item {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  padding: 11px 12px;
+  min-width: 100px;
+  box-shadow: var(--shadow);
+  flex-shrink: 0;
+}
+.ci-name { font-size: 0.7rem; color: var(--txt2); font-weight: 700; margin-bottom: 4px; }
+.ci-val  { font-size: 22px; font-weight: 900; margin-bottom: 4px; }
+.ci-bar  { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.ci-fill { height: 3px; border-radius: 2px; transition: width .8s ease; }
+
+.fb-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--r-lg);
+  padding: 14px;
+  margin-bottom: 12px;
+  box-shadow: var(--shadow);
+}
+.fb-title { font-size: 0.84rem; font-weight: 700; margin-bottom: 11px; }
+.fb-item {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.8rem;
+  color: var(--txt2);
+  margin-bottom: 9px;
+  line-height: 1.6;
+  word-break: keep-all;
+}
+.fi { flex-shrink: 0; font-size: 0.9rem; margin-top: 1px; }
+
+.btn-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.btn-ghost {
+  padding: 13px;
+  border-radius: var(--r);
+  border: 1.5px solid var(--border);
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--surface);
+  color: var(--txt);
+  font-family: inherit;
+  -webkit-appearance: none;
+  transition: background .15s;
+}
+.btn-ghost:active { background: var(--surf2); }
+.btn-share {
+  padding: 13px;
+  border-radius: var(--r);
+  border: none;
+  font-size: 0.86rem;
+  font-weight: 700;
+  cursor: pointer;
+  background: var(--blue);
+  color: #fff;
+  font-family: inherit;
+  -webkit-appearance: none;
+  transition: opacity .15s;
+}
+.btn-share:active { opacity: .78; }
+
+/* ─────────────────────────────────────────
+   INSTALL BANNER
+───────────────────────────────────────── */
+.install-banner {
+  background: var(--navy1);
+  color: #fff;
+  padding: 12px 14px;
+  display: none;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.78rem;
+}
+.ib-text { flex: 1; line-height: 1.4; }
+.ib-btn {
+  background: var(--blue);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 13px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: inherit;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.ib-close {
+  background: none;
+  border: none;
+  color: rgba(255,255,255,.5);
+  font-size: 1rem;
+  cursor: pointer;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+/* ─────────────────────────────────────────
+   LOADING DOTS
+───────────────────────────────────────── */
+.ld::after { content:'.'; animation: ld 1.2s steps(3,end) infinite; }
+@keyframes ld { 0%,33%{content:'.'}34%,66%{content:'..'}67%,100%{content:'...'} }
+
+/* ─────────────────────────────────────────
+   RESPONSIVE SAFE (wide screens)
+───────────────────────────────────────── */
+@media (min-width: 480px) {
+  #app { max-width: 480px; margin: 0 auto; box-shadow: 0 0 40px rgba(0,0,0,.12); min-height: 100dvh; }
+  body { background: #cbd0da; }
+}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ── INSTALL BANNER ── -->
+<div class="install-banner" id="install-banner">
+  <span style="font-size:20px">📱</span>
+  <span class="ib-text"><strong>홈 화면에 추가</strong>하면 앱처럼 사용할 수 있어요</span>
+  <button class="ib-btn" id="install-btn" onclick="installApp()">추가</button>
+  <button class="ib-close" onclick="dismissInstall()">✕</button>
+</div>
+
+<!-- ── TOP BAR ── -->
+<div class="topbar" id="topbar">
+  <div class="topbar-icon">🚢</div>
+  <div class="topbar-text">
+    <h1>언론질의 대응 훈련</h1>
+    <p>해양경찰 중부청 홍보계</p>
+  </div>
+  <button class="topbar-back" id="back-btn" onclick="goBack()">← 처음으로</button>
+</div>
+
+<!-- ═══════════════════════════════════════
+     SCREEN 1: START
+═══════════════════════════════════════ -->
+<div id="screen-start">
+<div class="scroll-area">
+
+  <!-- API KEY -->
+  <div class="api-card" id="api-card">
+    <div class="api-card-title">🔑 Anthropic API 키 필요</div>
+    <p>AI 기자 대화 및 실시간 평가를 위해 API 키가 필요합니다. 키는 이 기기에만 저장됩니다.<br>
+    👉 <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> 에서 무료 발급</p>
+    <div class="api-input-row">
+      <input type="password" id="api-input" placeholder="sk-ant-api03-..." autocomplete="off" inputmode="text">
+      <button class="api-save" onclick="saveKey()">저장</button>
+    </div>
+    <div class="api-status" id="api-status"></div>
+  </div>
+
+  <!-- MODE TABS -->
+  <div class="section-label">훈련 유형</div>
+  <div class="mode-tabs">
+    <button class="mode-tab active" id="tab-general" onclick="setMode('general')">🌐 일반 사고 유형</button>
+    <button class="mode-tab" id="tab-unit" onclick="setMode('unit')">🏢 소속관서 맞춤</button>
+  </div>
+
+  <!-- GENERAL PANEL -->
+  <div id="panel-general">
+    <div class="section-label">사고 유형 선택</div>
+    <div class="sel-grid">
+      <div class="sel-card" onclick="pickG(0)"><div class="icon">⛽</div><div class="name">선박 충돌</div><div class="tag">급유선·화물선 충돌, 기름 유출</div></div>
+      <div class="sel-card" onclick="pickG(1)"><div class="icon">🎣</div><div class="name">어선 전복</div><div class="tag">낚시어선 악천후 전복, 실종자</div></div>
+      <div class="sel-card" onclick="pickG(2)"><div class="icon">🔥</div><div class="name">선박 화재</div><div class="tag">여객선 화재, 퇴선 준비</div></div>
+      <div class="sel-card" onclick="pickG(3)"><div class="icon">🚢</div><div class="name">외국어선 단속</div><div class="tag">중국 불법조업, 선원 사망</div></div>
+      <div class="sel-card" onclick="pickG(4)" style="grid-column:span 2"><div class="icon">✈️</div><div class="name">항공기 불시착</div><div class="tag">여객기 해상 교신두절, 표류자 발견</div></div>
+    </div>
+  </div>
+
+  <!-- UNIT PANEL -->
+  <div id="panel-unit" style="display:none">
+    <div class="section-label">소속관서 선택</div>
+    <div class="unit-grid">
+      <div class="unit-card" onclick="pickU(0)"><div class="u-icon">⚓</div><div class="u-name">인천해경서</div><div class="u-tag">갯벌 해루질객 고립</div></div>
+      <div class="unit-card" onclick="pickU(1)"><div class="u-icon">🛢️</div><div class="u-name">평택해경서</div><div class="u-tag">항만 해양오염</div></div>
+      <div class="unit-card" onclick="pickU(2)"><div class="u-icon">🌊</div><div class="u-name">태안해경서</div><div class="u-tag">밀입국 시도</div></div>
+      <div class="unit-card" onclick="pickU(3)"><div class="u-icon">🔥</div><div class="u-name">보령해경서</div><div class="u-tag">정박 선박화재</div></div>
+      <div class="unit-card" onclick="pickU(4)"><div class="u-icon">🛡️</div><div class="u-name">서해5도특경단</div><div class="u-tag">불법조업 나포</div></div>
+    </div>
+    <div class="info-box" id="uinfo"></div>
+  </div>
+
+  <!-- QTYPE -->
+  <div class="section-label" style="margin-top:14px">질의 유형</div>
+  <div class="chip-grid">
+    <button class="chip" onclick="pickQ(0,this)"><div class="cl">⚔️ 공격적 질문</div><div class="cs">책임 추궁, 감정 자극</div></button>
+    <button class="chip" onclick="pickQ(1,this)"><div class="cl">🔒 정보공개 압박</div><div class="cs">비공개 추궁, 알권리</div></button>
+    <button class="chip" onclick="pickQ(2,this)"><div class="cl">📺 SNS 1인미디어</div><div class="cs">유튜버·개인 기자</div></button>
+    <button class="chip" onclick="pickQ(3,this)"><div class="cl">🎲 랜덤 혼합</div><div class="cs">예측 불가 조합</div></button>
+  </div>
+
+  <!-- DIFFICULTY -->
+  <div class="section-label" style="margin-top:14px">난이도</div>
+  <div class="chip-grid" style="grid-template-columns:1fr 1fr 1fr">
+    <button class="chip" onclick="pickD(1,this)"><div class="cl">🟢 초급</div><div class="cs">기본 압박</div></button>
+    <button class="chip" onclick="pickD(2,this)"><div class="cl">🟡 중급</div><div class="cs">돌발 추가</div></button>
+    <button class="chip" onclick="pickD(3,this)"><div class="cl">🔴 고급</div><div class="cs">복합 압박</div></button>
+  </div>
+
+</div><!-- /scroll-area -->
+<div class="bottom-bar">
+  <button class="btn-primary" id="start-btn" onclick="startTraining()" disabled>훈련 유형 · 질의 유형 · 난이도를 선택하세요</button>
+</div>
+</div><!-- /screen-start -->
+
+<!-- ═══════════════════════════════════════
+     SCREEN 2: CHAT
+═══════════════════════════════════════ -->
+<div id="screen-chat">
+<div class="scroll-area" id="chat-scroll">
+
+  <div class="q-row">
+    <div class="q-pills">
+      <span class="pill pill-blue" id="m-sc">-</span>
+      <span class="pill pill-red" id="m-df">-</span>
+      <span class="pill pill-gold" id="m-qt">-</span>
+      <span class="pill pill-teal" id="m-un" style="display:none">-</span>
+    </div>
+    <span class="q-num" id="q-num">1 / 5</span>
+  </div>
+
+  <div class="progress-wrap"><div class="progress-fill" id="prog" style="width:0%"></div></div>
+
+  <div class="hint-row">
+    <input type="checkbox" id="hint-chk" checked>
+    <label for="hint-chk">답변 후 즉시 피드백 보기</label>
+  </div>
+
+  <div class="messages" id="msgs"></div>
+
+</div><!-- /scroll-area -->
+
+<div class="bottom-bar">
+  <div class="chat-input-wrap">
+    <textarea id="chat-in" placeholder="현장 담당자로서 답변 입력... (전송 버튼 또는 엔터)" onkeydown="onKey(event)" rows="2" disabled></textarea>
+    <button class="chat-send" id="chat-send" onclick="sendAns()" disabled>↑</button>
+  </div>
+</div>
+</div><!-- /screen-chat -->
+
+<!-- ═══════════════════════════════════════
+     SCREEN 3: RESULT
+═══════════════════════════════════════ -->
+<div id="screen-result">
+<div class="scroll-area">
+
+  <div class="score-hero">
+    <div class="score-num" id="r-score">-</div>
+    <div class="score-grade" id="r-grade">-</div>
+    <div class="score-comment" id="r-comment">-</div>
+  </div>
+
+  <div class="section-label">항목별 점수</div>
+  <div class="crit-scroll" id="crit-scroll"></div>
+
+  <div class="fb-card">
+    <div class="fb-title">💡 종합 피드백</div>
+    <div id="fb-list"></div>
+  </div>
+
+  <div class="fb-card" id="model-box" style="display:none">
+    <div class="fb-title">📋 모범 답변 패턴</div>
+    <div id="model-list"></div>
+  </div>
+
+</div><!-- /scroll-area -->
+<div class="bottom-bar">
+  <div class="btn-row">
+    <button class="btn-ghost" onclick="restart()">↩ 다시 시작</button>
+    <button class="btn-share" onclick="shareResult()">🔗 공유하기</button>
+  </div>
+</div>
+</div><!-- /screen-result -->
+
+</div><!-- /app -->
+
+<!-- ═══════════════════════════════════════
+     DATA & LOGIC
+═══════════════════════════════════════ -->
+<script>
+/* ─── DATA ─────────────────────────────── */
+const G=[
+ {n:'선박 충돌',i:'⛽',
+  s:'○○월 ○○일 새벽, ○○항 남방 해상에서 급유선 ○○○호(500t)와 화물선 △△△호(10,000t)가 충돌하는 사고가 발생했습니다. ○○○호 선원 중 실종자가 발생하였으며 기름이 유출되고 있습니다. 현재 구조활동 진행 중입니다.',
+  q:{attack:['충돌 직후 해경 도착까지 너무 오래 걸렸다는 증언이 있습니다. 구조가 늦어진 이유는 뭡니까?','골든타임을 놓쳤다는 내부 지적도 있습니다. 인정하십니까?','사고 원인은 무엇입니까? 해상 교통 관제 책임은 없습니까?','기름 유출도 기자 제보로 드러났는데, 해경은 왜 늦게 인정했습니까?','비슷한 충돌 사고가 전에도 있었는데, 왜 반복된 겁니까?'],
+   info:['구조 영상이나 블랙박스 영상을 왜 공개하지 않습니까?','언론사마다 들은 정보가 다릅니다. 공식 브리핑 외엔 아무것도 공유하지 않는 이유가 뭡니까?','실종자 가족들은 아무런 설명도 못 듣고 있다고 합니다. 정보 통제가 있는 겁니까?','무엇을 근거로 정보 비공개를 결정하신 건가요?','국민의 알권리보다 기관 보호가 우선이라는 겁니까?'],
+   sns:['SNS에서 이미 사건 정보가 퍼졌습니다. 해경은 왜 실시간으로 공개하지 않는 건가요?','정부 비판 콘텐츠를 한다고 정보를 안 주는 건 아닌가요?','방송사보다 구독자가 많은데 왜 우리를 무시합니까?','유튜브 언론은 왜 현장 취재를 못 하게 합니까?','SNS가 더 빨리 사실을 알리는데, 공식 발표는 왜 이렇게 늦습니까?']}
+ },
+ {n:'어선 전복',i:'🎣',
+  s:'○○월 ○○일 오전, ○○ 북방 해상에서 낚시어선 ○○○호(9.8t)가 악천후로 전복하는 사고가 발생했습니다. 승선원 총 ○○명 중 ○○명은 인근 선박에서 구조되었으며, 실종자 ○○명이 발생한 상황입니다.',
+  q:{attack:['악천후가 예보됐는데 왜 출항을 막지 않았습니까?','사고 발생 후 몇 분 만에 구조작업이 시작됐습니까? 너무 늦은 것 아닙니까?','이번에도 민간 선박이 구조했는데 해경은 뭐하고 있었습니까?','해경이 사고 때마다 늑장 대응 논란에 휘말리는데, 이번에도 똑같은 모습 아닙니까?','현장 지휘관의 대응에 문제가 있다는 얘기가 나오는데 사실입니까?'],
+   info:['구조 인원 숫자도 계속 바뀌는데, 정확한 상황을 파악 못 하고 있는 겁니까?','왜 실종자 명단조차 공개하지 않습니까?','언론 브리핑 내용과 유가족들이 들은 내용이 다르다는데, 누가 거짓말하는 겁니까?','사고 선박에 불법 개조 의혹이 있던 건 아닌가요?','뉴스에 나온 거랑 다른데, 지금 거짓말하는 겁니까?'],
+   sns:['SNS에서 영상이 퍼지고 있는데, 해경은 공식 입장이 없는 건가요?','댓글에 해경 늑장대응이라고 엄청 달리고 있는데 반박할 수 있습니까?','인스타그램에 올라온 영상에서 구조 장면이 없는데 어떻게 된 건가요?','실시간 스트리밍 중인데, 지금 당장 답변 못 해줍니까?','구독자들이 해경 믿지 말라고 댓글 달고 있는데 해명해주시겠습니까?']}
+ },
+ {n:'선박 화재',i:'🔥',
+  s:'○○월 ○○일 밤, ○○항 서방 해상에서 여객선 ○○○호(4,000t) 내부에서 원인 불명의 화재가 발생했습니다. 자체 소화는 불가능한 상태이며, 승선원 전원이 퇴선 준비 중입니다.',
+  q:{attack:['화재 발생 후 시간이 꽤 지났는데 아직도 진화가 안 됐다는 건 무능한 대응 아닙니까?','초기 대응만 잘했어도 대형 사고로 번지지 않았을 텐데, 왜 늑장 대응을 했습니까?','배 안에 아이도 있다는 제보가 있는데, 안전하게 퇴선할 수 있는 겁니까?','현장 지휘 체계가 제대로 작동하고 있는 겁니까? 퇴선 지시가 늦어진 거 아닌가요?','소화 시스템이 있었는데 왜 작동을 못 한 건가요?'],
+   info:['기자들에게 아무런 정보도 주지 않다가 이제야 브리핑하는 이유는 뭡니까?','SNS로 먼저 알게 된 기자들도 많습니다. 공식 정보 전달 체계가 망가진 것 아닌가요?','정확한 화재 원인도 모르면서 상황을 통제하고 있다는 말씀이십니까?','정기 점검을 받았던 선박입니까? 안전 기준이 제대로 지켜진 건가요?','국민은 아무 정보도 못 듣고 있는 겁니까?'],
+   sns:['지금 제 구독자들이 실시간으로 보고 있는데, 명확하게 말씀해주실 수 있습니까?','SNS에 퍼지는 목격자 영상이 해경 발표와 다른데 어떻게 해명하십니까?','1인 미디어는 왜 현장 접근이 안 됩니까?','지금 이 순간 영상 찍어도 됩니까?','방송사 기자만 현장 접근 되는 이유가 뭡니까?']}
+ },
+ {n:'외국어선 단속',i:'🚢',
+  s:'○○월 ○○일 오전, 서방 ○○마일 해상에서 불법조업 중이던 중국 유자망 어선 ○○○호(100t)를 단속하던 중, 중국 선원 ○○명이 사망하는 사건이 발생했습니다. 사고 원인은 파악 중이며, 선원 및 시신 이송 중입니다.',
+  q:{attack:['단속 당시 과잉 대응은 없었는지 명확한 답을 주지 않는 이유가 뭔가요?','중국 정부는 강력히 반발하고 있는데, 해경은 얼마나 진지하게 대응하고 있나요?','사망한 선원 유족들에게 사과와 보상을 제공할 준비가 되어 있나요?','외교적 문제로 번질 가능성에 대해 어떻게 대응하고 있나요?','사건을 축소하려는 의도가 있는 건 아닌지 궁금합니다.'],
+   info:['언제까지 사고 원인 조사 중이라고 말할 건가요?','실시간으로 정보를 공개하지 않는 이유는 뭔가요?','한국 정부 차원의 공식 입장은 언제 나올 것인가요?','잘못된 정보에 대해 정정하고 신뢰를 회복할 계획은 있나요?','정보공개가 너무 늦은 것 같습니다, 이유가 뭔가요?'],
+   sns:['SNS에서 사건 정보가 이미 퍼졌습니다. 공식 발표가 왜 이렇게 늦습니까?','일부 유언비어가 SNS를 통해 퍼지고 있습니다. 빨리 팩트체크를 안 하는 겁니까?','방송사 기자에겐 자료 주면서 1인 미디어는 왜 배제합니까?','외교적 문제로 해경이 쉬쉬하는 것 아닙니까?','공정하게 정보를 배포 안 하는 거 아닙니까?']}
+ },
+ {n:'항공기 불시착',i:'✈️',
+  s:'○○월 ○○일 오후, ○○공항에서 이륙한 여객기(KAL-○○○편)가 엔진 결함으로 회항 중 해상에서 교신이 두절되었습니다. 탑승객 150명 추정이며, 해상에서 기체 및 다수의 표류자가 발견되어 구조 활동 중입니다.',
+  q:{attack:['골든타임 안에 구조세력이 도달했습니까?','교신 두절부터 구조세력 도착까지 정확히 몇 분이 걸렸습니까? 왜 늦었죠?','위기대응 매뉴얼이 있다면서 왜 매번 똑같이 늦고 혼란스럽습니까?','이번에도 사과 한마디로 끝낼 겁니까?','실종자 가족들에게 해경은 설명이나 했습니까?'],
+   info:['구조 상황, 생존자 수 아무것도 공개되지 않았습니다. 뭘 숨기고 있는 겁니까?','브리핑 내용이 계속 반복되고 모호합니다. 왜 국민들에게 공유하지 않습니까?','항공 당국과의 공조 상황을 왜 공개하지 않습니까?','기체 블랙박스는 수거했습니까? 왜 공개 안 합니까?','국민의 알권리 침해 아닙니까?'],
+   sns:['제 채널 구독자들이 실시간으로 보고 있는데, 투명하게 말씀해주시겠습니까?','SNS의 목격자 증언이 해경 발표와 다릅니다. 해명하십니까?','라이브 방송 중인데, 구조 현황 말씀해 주실 수 있습니까?','공식 기자단만 브리핑 받는 건 정보 독점 아닙니까?','수백만 구독자를 무시하는 겁니까?']}
+ }
+];
+
+const U=[
+ {unit:'인천해경서',i:'⚓',n:'갯벌 해루질객 고립',
+  hint:'조석 예보 미확인·야간 구조 지연·반복 사고 책임 등 인천 관할 특화 압박 질문 포함',
+  s:'인천 영종도 인근 갯벌에서 해루질(야간 갯벌 채취)을 하던 민간인 ○○명이 밀물로 인해 고립되는 사고가 발생했습니다. 신고 접수 시각은 오전 02:15이며, 현재 구조정과 헬기가 출동 중입니다. 기상 악화로 구조에 어려움이 있는 상황입니다.',
+  q:{attack:['조석 예보에 이미 위험이 예고됐는데 왜 사전에 경고하지 않았습니까?','야간에 신고가 들어왔는데 왜 이렇게 늦게 구조세력이 도착한 겁니까?','이 지역에서 갯벌 고립 사고가 반복되는데, 해경은 도대체 뭘 하고 있었습니까?','밀물 시간은 예측 가능한 건데, 왜 사전 순찰을 하지 않았습니까?','구조 중 부상자가 발생했다는데 해경 책임은 없습니까?'],
+   info:['현재 고립된 인원이 정확히 몇 명입니까? 숫자가 계속 바뀌고 있습니다.','구조 현장 접근이 왜 통제됩니까? 취재진의 현장 접근을 허용해야 하는 것 아닙니까?','구조에 헬기를 몇 대 투입했는지, 왜 공개 안 하는 겁니까?','기상 악화라고 하는데, 그게 구조 지연의 변명이 됩니까?','인천해경서의 갯벌 안전관리 매뉴얼이 있다면 공개해 주시겠습니까?'],
+   sns:['지금 갯벌에서 라이브하고 있는 구독자가 있는데 해경 구조정이 안 보인다고 합니다. 어디 있습니까?','SNS에 이미 고립자들이 직접 라이브를 켰습니다. 해경은 어떻게 대응하고 있습니까?','갯벌 고립 사고가 반복된다는 댓글이 넘쳐나고 있습니다. 해명해주십시오.','1인 미디어도 현장 취재할 권리가 있는 것 아닙니까?','새벽 사고인데 해경 SNS 공지가 왜 이렇게 늦게 올라오는 겁니까?']}
+ },
+ {unit:'평택해경서',i:'🛢️',n:'항만 해양오염',
+  hint:'방제 지연·양식장 피해·오염원 은폐 의혹 등 평택 관할 특화 압박 질문 포함',
+  s:'평택항 내 부두에 정박 중인 유조선 ○○○호에서 원인 불명의 기름이 유출되어 항만 내 해양오염이 발생했습니다. 오염 면적이 확산 중이며, 인근 어선 및 양식장 피해가 우려되고 있습니다. 방제 작업이 진행 중입니다.',
+  q:{attack:['유출이 처음 신고됐을 때 왜 즉시 방제 조치를 취하지 않았습니까?','오염 면적이 계속 확산되고 있는데, 지금 대응이 충분하다고 보십니까?','인근 양식장 피해 어민들은 누가 보상합니까? 해경은 책임이 없습니까?','평택항에서 이런 유출 사고가 처음이 아닌데, 왜 재발 방지 대책이 없습니까?','방제 장비가 부족한 것 아닙니까? 왜 민간 방제업체에 의존합니까?'],
+   info:['유출된 기름의 종류와 양을 왜 공개하지 않습니까?','오염원이 어느 선박인지 특정됐는데 왜 공개를 안 합니까?','해양오염 확산 범위를 왜 실시간으로 공개하지 않는 겁니까?','방제 작업 계획과 완료 예상 시간을 공개해 주시겠습니까?','인근 어민들에 대한 피해 보상 절차는 어떻게 되는 겁니까?'],
+   sns:['드론으로 항만 전체가 기름으로 뒤덮인 모습을 촬영했습니다. 해경 발표와 다른 것 같은데요?','어민 피해자가 제 채널에 제보해왔습니다. 해경은 이 분들에게 연락은 했습니까?','SNS에 방제 작업 현장 영상 올리면 안 됩니까?','해경이 오염 규모를 축소 발표한다는 제보가 들어오고 있습니다. 사실입니까?','항만 주변 상인들도 피해를 호소하고 있는데 해경은 파악하고 있습니까?']}
+ },
+ {unit:'태안해경서',i:'🌊',n:'밀입국 시도',
+  hint:'서해안 경계 실패·도주 의혹·외국인 인권 등 태안 관할 특화 압박 질문 포함',
+  s:'충남 태안군 근흥면 신진도 인근 해안에서 외국인 밀입국 시도가 포착되었습니다. 소형 선박 1척이 확인되었으며, 탑승 인원 및 국적은 확인 중입니다. 현재 해경 경비함과 파출소 요원이 현장에 출동하여 수색 중입니다.',
+  q:{attack:['서해안 경계가 이렇게 허술한 게 사실 아닙니까? 어떻게 소형 선박이 해안까지 접근합니까?','사전에 첩보가 있었다는 제보가 있는데, 왜 사전에 막지 못했습니까?','밀입국자가 이미 육상으로 도주했다는 얘기가 있는데 사실입니까?','태안 해안선 경계 강화 요구가 계속 있었는데 왜 개선이 안 됐습니까?','밀입국자 중 범죄자가 포함됐을 가능성은 없습니까?'],
+   info:['밀입국 시도 인원이 정확히 몇 명입니까? 왜 확인이 안 됩니까?','선박의 국적과 출항지는 왜 공개하지 않습니까?','밀입국자의 국적을 왜 알려주지 않습니까?','검거된 인원과 도주한 인원을 구분해서 공개해 주시겠습니까?','현재 수색 범위와 투입 인력을 공개해 주십시오.'],
+   sns:['제 구독자가 해안가에서 수상한 사람들을 봤다고 제보해왔습니다. 사실 확인해주시겠습니까?','SNS에 밀입국자가 이미 육상으로 도주했다는 정보가 돌고 있습니다. 사실입니까?','해안 주민들이 불안해하고 있습니다. 해경이 안전을 보장할 수 있습니까?','저는 이 지역 출신 유튜버인데, 현장 취재를 할 수 있습니까?','주민 제보 영상이 있는데 공유해드릴까요?']}
+ },
+ {unit:'보령해경서',i:'🔥',n:'정박 선박화재',
+  hint:'항만 안전관리·인접 선박 대피·소방-해경 공조 혼선 등 보령 관할 특화 압박 질문 포함',
+  s:'충남 보령시 대천항 부두에 정박 중인 낚시어선 ○○호에서 화재가 발생했습니다. 인접 선박으로 불이 번질 위험이 있으며, 항구 내 어선 여러 척이 위협받고 있습니다. 소방 및 해경이 공동 대응 중입니다.',
+  q:{attack:['정박 중인 선박에서 왜 화재가 발생했습니까? 항만 안전관리에 문제가 있는 건 아닙니까?','인접 선박 어민들은 왜 대피 안내를 제때 받지 못했습니까?','소방과 해경이 공동 대응한다고 하는데 지휘 체계가 혼선이 있는 것 아닙니까?','이 선박이 정기 안전 점검을 받았습니까? 결과를 공개해주십시오.','화재 원인이 의도적인 방화일 가능성은 없습니까?'],
+   info:['화재 발생 선박의 소유자와 보험 가입 여부를 공개해주십시오.','인접 선박 피해 현황은 어떻게 됩니까?','진화 완료 예상 시간을 알려주시겠습니까?','화재 원인 조사 결과는 언제 공개될 예정입니까?','대천항 전체 선박 대피 지시가 왜 늦게 내려졌습니까?'],
+   sns:['지금 대천항에서 라이브 방송 중입니다. 화염이 항구 전체로 번지고 있는데 해경은 어디 있습니까?','어민들이 직접 제보해오고 있는데, 해경이 대피 안내를 안 했다고 합니다. 사실입니까?','SNS에 올라온 영상을 보면 소방차와 해경이 서로 다른 방향으로 움직이고 있습니다. 지휘 체계가 맞습니까?','대천항 상인들도 대피해야 합니까? 공식 안내가 왜 없습니까?','인근 낚시어선 어부들이 재산을 잃었다고 SNS에 올리고 있습니다. 해경의 입장은요?']}
+ },
+ {unit:'서해5도특경단',i:'🛡️',n:'불법조업 어선 나포',
+  hint:'NLL 인근 외교 민감성·과잉 진압 의혹·정보 공개 범위 등 서해5도 특화 압박 질문 포함',
+  s:'인천 옹진군 연평도 해상 NLL 인근에서 불법조업 중인 중국 어선 ○○○호(100t)를 나포하는 상황이 발생했습니다. 나포 과정에서 중국 선원의 저항이 있었으며, 현재 선원 ○○명을 인천으로 이송 중입니다.',
+  q:{attack:['나포 과정에서 과잉 진압이 있었다는 제보가 있는데 사실입니까?','NLL 인근에서 이런 불법조업이 반복되는데, 해경의 경계 활동이 제대로 이뤄지고 있는 건 맞습니까?','중국 선원이 부상을 당했다는데 해경 책임은 없습니까?','나포 시간이 너무 오래 걸렸다는 지적이 있습니다. 왜 신속하게 대응하지 못했습니까?','같은 어선이 이전에도 단속된 전력이 있다면 왜 재입어를 막지 못했습니까?'],
+   info:['나포 어선의 정확한 위치와 국적을 공개해주십시오.','중국 선원 몇 명을 나포했는지 정확히 알려주십시오.','나포 당시 상황 기록인 선상 영상을 공개할 의향이 있습니까?','중국 정부와의 외교적 협의는 어떻게 진행되고 있습니까?','NLL 인근 불법조업 통계를 공개해주시겠습니까?'],
+   sns:['NLL 인근 상황을 제 채널에서 다루고 있습니다. 자세한 브리핑 요청드립니다.','중국 측 SNS에서는 과잉 진압이라는 주장이 확산되고 있는데, 한국 해경 입장은 무엇입니까?','연평도 주민이 나포 장면을 촬영했다고 제보가 왔는데 공개해도 됩니까?','중국 선원의 인권이 보장되고 있습니까? 구독자들이 걱정하고 있습니다.','외교 문제로 번질 수 있는 민감한 사안인데 왜 해경은 소통을 안 합니까?']}
+ }
+];
+
+const QK=['attack','info','sns'];
+const QN=['⚔️ 공격','🔒 정보압박','📺 SNS','🎲 랜덤'];
+const DN=['','🟢초급','🟡중급','🔴고급'];
+const TQ=5;
+
+/* ─── STATE ──────────────────────────────── */
+let A={key:'',mode:'general',gi:-1,ui:-1,diff:0,qt:-1,qs:[],pos:0,ans:[],evs:[]};
+
+/* ─── PWA INSTALL ──────────────────────── */
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault(); deferredPrompt=e;
+  const b=document.getElementById('install-banner');
+  b.style.display='flex';
+});
+function installApp(){
+  if(!deferredPrompt) return;
+  deferredPrompt.prompt();
+  deferredPrompt.userChoice.then(()=>{ deferredPrompt=null; dismissInstall(); });
+}
+function dismissInstall(){ document.getElementById('install-banner').style.display='none'; }
+
+/* ─── API KEY ──────────────────────────── */
+function saveKey(){
+  const v=document.getElementById('api-input').value.trim();
+  const st=document.getElementById('api-status');
+  if(!v.startsWith('sk-')){st.className='api-status api-err';st.textContent='올바른 API 키 형식이 아닙니다 (sk-... 로 시작)';return;}
+  A.key=v; localStorage.setItem('cg_key',v);
+  st.className='api-status api-ok'; st.textContent='✅ 저장 완료. 훈련을 시작하세요!';
+  document.getElementById('api-card').style.borderColor='#80c080';
+}
+(function(){
+  const s=localStorage.getItem('cg_key');
+  if(s){A.key=s;document.getElementById('api-input').value=s;
+    document.getElementById('api-status').className='api-status api-ok';
+    document.getElementById('api-status').textContent='✅ 저장된 API 키를 불러왔습니다.';}
+})();
+
+/* ─── SELECTION ────────────────────────── */
+function setMode(m){
+  A.mode=m; A.gi=-1; A.ui=-1;
+  document.getElementById('tab-general').classList.toggle('active',m==='general');
+  document.getElementById('tab-unit').classList.toggle('active',m==='unit');
+  document.getElementById('panel-general').style.display=m==='general'?'':'none';
+  document.getElementById('panel-unit').style.display=m==='unit'?'':'none';
+  document.getElementById('uinfo').style.display='none';
+  document.querySelectorAll('.sel-card,.unit-card').forEach(c=>c.classList.remove('sel'));
+  upd();
+}
+function pickG(id){
+  document.querySelectorAll('.sel-card').forEach(c=>c.classList.remove('sel'));
+  document.querySelectorAll('.sel-card')[id].classList.add('sel');
+  A.gi=id; upd();
+}
+function pickU(id){
+  document.querySelectorAll('.unit-card').forEach(c=>c.classList.remove('sel'));
+  document.querySelectorAll('.unit-card')[id].classList.add('sel');
+  A.ui=id;
+  const ib=document.getElementById('uinfo');
+  ib.style.display='block';
+  ib.innerHTML='<strong>📌 '+U[id].unit+':</strong> '+U[id].hint;
+  upd();
+}
+function pickQ(qt,btn){
+  document.querySelectorAll('.chip[onclick^="pickQ"]').forEach(b=>{b.className='chip';});
+  const cls=['c-attack','c-info','c-sns','c-random'][qt];
+  btn.classList.add(cls); A.qt=qt; upd();
+}
+function pickD(d,btn){
+  document.querySelectorAll('.chip[onclick^="pickD"]').forEach(b=>{b.className='chip';});
+  btn.classList.add('c-d'+d); A.diff=d; upd();
+}
+function upd(){
+  const ok=((A.mode==='general'&&A.gi>=0)||(A.mode==='unit'&&A.ui>=0))&&A.diff>0&&A.qt>=0;
+  const btn=document.getElementById('start-btn');
+  btn.disabled=!ok;
+  btn.textContent=ok?'훈련 시작하기 →':'훈련 유형 · 질의 유형 · 난이도를 선택하세요';
+}
+
+/* ─── BUILD QS ─────────────────────────── */
+function buildQs(){
+  const sc=A.mode==='general'?G[A.gi]:U[A.ui];
+  let pool=[];
+  if(A.qt===3) QK.forEach(k=>pool.push(...sc.q[k].map(q=>({q,k}))));
+  else pool=sc.q[QK[A.qt]].map(q=>({q,k:QK[A.qt]}));
+  A.qs=pool.sort(()=>Math.random()-.5).slice(0,TQ);
+}
+
+/* ─── START ────────────────────────────── */
+function startTraining(){
+  if(!A.key){alert('먼저 Anthropic API 키를 입력하고 저장해주세요.');return;}
+  buildQs(); A.pos=0; A.ans=[]; A.evs=[];
+  const sc=A.mode==='general'?G[A.gi]:U[A.ui];
+  show('chat');
+  document.getElementById('back-btn').style.display='block';
+  document.getElementById('m-sc').textContent=sc.i+' '+(sc.n);
+  document.getElementById('m-df').textContent=DN[A.diff];
+  document.getElementById('m-qt').textContent=QN[A.qt];
+  const un=document.getElementById('m-un');
+  if(A.mode==='unit'){un.style.display='';un.textContent='🏢 '+sc.unit;}
+  else un.style.display='none';
+  document.getElementById('msgs').innerHTML='';
+  bbl('system','훈련을 시작합니다. 현장 담당자로서 실제처럼 답변해 주세요.');
+  if(A.mode==='unit') bbl('system','🏢 '+sc.unit+' 맞춤 시나리오: '+sc.n);
+  bbl('system','📋 '+sc.s);
+  setTimeout(nextQ,700);
+}
+
+/* ─── CHAT ─────────────────────────────── */
+function nextQ(){
+  if(A.pos>=TQ){finish();return;}
+  document.getElementById('prog').style.width=(A.pos/TQ*100)+'%';
+  document.getElementById('q-num').textContent=(A.pos+1)+' / '+TQ;
+  bbl('reporter',A.qs[A.pos].q);
+  const ci=document.getElementById('chat-in');
+  const cs=document.getElementById('chat-send');
+  ci.disabled=false; cs.disabled=false; ci.focus();
+}
+
+function bbl(type,text){
+  const wrap=document.getElementById('msgs');
+  const d=document.createElement('div');
+  d.className='bbl bbl-'+type;
+  if(type==='reporter') d.innerHTML='<div class="rlabel">📰 기자 / 민원인</div>'+esc(text);
+  else if(type==='hint') d.innerHTML='💡 <strong>즉시 피드백:</strong> '+esc(text);
+  else d.textContent=text;
+  wrap.appendChild(d);
+  // scroll chat area
+  const sa=document.getElementById('chat-scroll');
+  setTimeout(()=>sa.scrollTop=sa.scrollHeight,50);
+  return d;
+}
+
+function esc(t){return String(t).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+function onKey(e){
+  // mobile: don't auto-submit on Enter (soft keyboard sends Enter for new lines)
+  if(e.key==='Enter'&&!e.shiftKey&&window.innerWidth>600){e.preventDefault();sendAns();}
+}
+
+async function sendAns(){
+  const ci=document.getElementById('chat-in');
+  const cs=document.getElementById('chat-send');
+  const text=ci.value.trim(); if(!text) return;
+  ci.value=''; ci.disabled=true; cs.disabled=true;
+  bbl('user',text); A.ans.push(text);
+  const sc=A.mode==='general'?G[A.gi]:U[A.ui];
+  const q=A.qs[A.pos];
+  const ld=bbl('system','');
+  ld.innerHTML='<span class="ld">평가 중</span>';
+  try{
+    const ev=await evalQ(q.q,text,sc.s,A.diff,q.k,A.mode==='unit'?sc.unit:'');
+    ld.remove();
+    if(document.getElementById('hint-chk').checked) bbl('hint',ev.fb);
+    A.evs.push(ev);
+  }catch(e){
+    ld.remove();
+    bbl('system','(평가 오류, 계속 진행합니다)');
+    A.evs.push({fb:'',sc:{신속대응:70,정확성:70,태도:70,정보보안:70,홍보계보고:70}});
+  }
+  A.pos++;
+  setTimeout(nextQ,600);
+}
+
+async function evalQ(question,answer,situation,diff,qt,unit){
+  const dl=['','초급','중급','고급'][diff];
+  const uc=unit?`\n[소속관서] ${unit}`:'';
+  const p=`당신은 해양경찰 언론대응 평가관입니다.${uc}
+[상황]${situation}
+[질문]${question}
+[답변]${answer}
+[난이도]${dl}
+JSON만 출력(마크다운 없이):{"fb":"즉시피드백25자이내","sc":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0}}
+각0~100. 신속대응=소속이름명확, 정확성=사실기반, 태도=침착비폐쇄, 정보보안=미확인비노출, 홍보계보고=홍보계일원화언급`;
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':A.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:250,messages:[{role:'user',content:p}]})
+  });
+  if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'err');}
+  const d=await r.json();
+  return JSON.parse(d.content[0].text.trim().replace(/```json|```/g,'').trim());
+}
+
+/* ─── FINISH ───────────────────────────── */
+async function finish(){
+  document.getElementById('prog').style.width='100%';
+  document.getElementById('chat-in').disabled=true;
+  document.getElementById('chat-send').disabled=true;
+  const ld=bbl('system','');
+  ld.innerHTML='<span class="ld">종합 평가 생성 중</span>';
+  try{await showRes(ld);}catch(e){ld.remove();fallback();}
+}
+
+async function showRes(ld){
+  const sc=A.mode==='general'?G[A.gi]:U[A.ui];
+  const uc=A.mode==='unit'?`\n[소속관서]${sc.unit}`:'';
+  const p=`해양경찰 언론대응 훈련 종합평가. JSON만 출력(마크다운 없이).${uc}
+[시나리오]${sc.n}[난이도]${DN[A.diff]}
+[QA]
+${A.qs.map((q,i)=>'Q'+(i+1)+':'+q.q+'\nA'+(i+1)+':'+(A.ans[i]||'(무응답)')).join('\n')}
+JSON:{"ts":0,"gr":"A","gc":"총평15자이내","oc":"종합40자이내","cs":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0},"st":["강점1","강점2"],"im":["개선1","개선2","개선3"],"mp":["모범패턴1","모범패턴2"]}`;
+  const r=await fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','x-api-key':A.key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:600,messages:[{role:'user',content:p}]})
+  });
+  if(!r.ok) throw new Error('err');
+  const d=await r.json();
+  const j=JSON.parse(d.content[0].text.trim().replace(/```json|```/g,'').trim());
+  ld.remove();
+  renderRes(j);
+}
+
+function fallback(){
+  const avg=Math.round(A.evs.reduce((s,e)=>{
+    const v=Object.values(e.sc||{});return s+(v.length?v.reduce((a,b)=>a+b,0)/v.length:65);
+  },0)/(A.evs.length||1));
+  renderRes({ts:avg,gr:avg>=85?'A':avg>=70?'B':avg>=55?'C':'D',gc:'훈련 완료',oc:'결과를 검토하세요.',
+    cs:{신속대응:avg,정확성:avg,태도:avg,정보보안:avg,홍보계보고:avg},
+    st:['훈련에 성실히 참여하였습니다.'],
+    im:['홍보계 일원화 원칙을 숙지하세요.','정확한 정보만 전달하는 습관을 기르세요.'],
+    mp:['안녕하세요, ○○서 ○○과 경사 ○○○입니다. 확인 후 홍보실을 통해 답변드리겠습니다. 연락처를 남겨 주시겠습니까?']});
+}
+
+function renderRes(r){
+  show('result');
+  document.getElementById('back-btn').style.display='block';
+  const sn=document.getElementById('r-score');
+  sn.textContent=r.ts; sn.className='score-num score-'+(r.gr||'B');
+  document.getElementById('r-grade').textContent='등급 '+(r.gr||'B')+' — '+(r.gc||'');
+  document.getElementById('r-comment').textContent=r.oc||'';
+
+  const cols={신속대응:'#5ab8f0',정확성:'#5fe89c',태도:'#f8d060',정보보안:'#c8a4f8',홍보계보고:'#f87070'};
+  const cs=document.getElementById('crit-scroll'); cs.innerHTML='';
+  Object.entries(r.cs||{}).forEach(([n,v])=>{
+    const c=cols[n]||'#aaa';
+    cs.innerHTML+=`<div class="crit-item"><div class="ci-name">${n}</div><div class="ci-val" style="color:${c}">${v}</div><div class="ci-bar"><div class="ci-fill" style="width:${v}%;background:${c}"></div></div></div>`;
+  });
+
+  const fl=document.getElementById('fb-list'); fl.innerHTML='';
+  (r.st||[]).forEach(s=>fl.innerHTML+=`<div class="fb-item"><span class="fi">✅</span><span>${esc(s)}</span></div>`);
+  (r.im||[]).forEach(s=>fl.innerHTML+=`<div class="fb-item"><span class="fi">⚠️</span><span>${esc(s)}</span></div>`);
+
+  if((r.mp||[]).length){
+    document.getElementById('model-box').style.display='block';
+    const ml=document.getElementById('model-list'); ml.innerHTML='';
+    r.mp.forEach((p,i)=>ml.innerHTML+=`<div class="fb-item"><span class="fi" style="color:#5ab8f0">💬</span><span><strong>패턴${i+1}:</strong> ${esc(p)}</span></div>`);
+  }
+  document.getElementById('chat-scroll').scrollTop=0;
+}
+
+/* ─── NAV ──────────────────────────────── */
+function show(scr){
+  ['start','chat','result'].forEach(s=>{
+    document.getElementById('screen-'+s).style.display=s===scr?'':'none';
+  });
+}
+
+function goBack(){
+  const cur=['chat','result'].find(s=>document.getElementById('screen-'+s).style.display!=='none');
+  if(!cur) return;
+  if(cur==='result'||confirm('훈련을 종료하고 처음으로 돌아가시겠습니까?')){
+    restart();
+  }
+}
+
+function restart(){
+  A.gi=-1;A.ui=-1;A.diff=0;A.qt=-1;A.qs=[];A.pos=0;A.ans=[];A.evs=[];
+  document.querySelectorAll('.sel-card,.unit-card').forEach(c=>c.classList.remove('sel'));
+  document.querySelectorAll('.chip').forEach(b=>b.className='chip');
+  document.getElementById('uinfo').style.display='none';
+  document.getElementById('model-box').style.display='none';
+  document.getElementById('back-btn').style.display='none';
+  setMode(A.mode);
+  show('start');
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+async function shareResult(){
+  const sc=A.mode==='general'?G[A.gi]:U[A.ui];
+  const scoreEl=document.getElementById('r-score');
+  const gradeEl=document.getElementById('r-grade');
+  const text=`[해양경찰 언론대응 훈련 결과]\n시나리오: ${sc?sc.n:'-'}\n${gradeEl.textContent}\n${scoreEl.textContent}점\n\n훈련 프로그램: ${location.href}`;
+  if(navigator.share){
+    try{
+      await navigator.share({title:'언론대응 훈련 결과',text:text,url:location.href});
+      return;
+    }catch(e){}
+  }
+  try{
+    await navigator.clipboard.writeText(location.href);
+    alert('링크가 클립보드에 복사되었습니다!\n카카오톡, 문자 등으로 공유하세요.');
+  }catch(e){
+    alert('공유 링크: '+location.href);
+  }
+}
+
+/* init */
+show('start');
+</script>
+
+<!-- SERVICE WORKER for offline -->
+<script>
+if('serviceWorker' in navigator){
+  const swCode=`
+self.addEventListener('install',e=>self.skipWaiting());
+self.addEventListener('activate',e=>clients.claim());
+self.addEventListener('fetch',e=>{
+  if(e.request.method!=='GET') return;
+  e.respondWith(
+    caches.open('cg-v1').then(c=>
+      c.match(e.request).then(r=>r||fetch(e.request).then(res=>{
+        if(res.ok) c.put(e.request,res.clone());
+        return res;
+      }))
+    )
+  );
+});`;
+  const b=new Blob([swCode],{type:'application/javascript'});
+  const u=URL.createObjectURL(b);
+  navigator.serviceWorker.register(u).catch(()=>{});
+}
+</script>
+</body>
+</html>
