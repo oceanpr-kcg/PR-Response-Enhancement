@@ -711,20 +711,6 @@ body {
 <div id="screen-start">
 <div class="scroll-area">
 
-
-
-  <!-- API KEY CARD -->
-  <div class="api-card" id="api-card">
-    <div class="api-card-title">🔑 Claude API 키 입력 (최초 1회)</div>
-    <p>AI 기자 역할·실시간 평가를 위해 <strong>Anthropic Claude API 키</strong>가 필요합니다. 키는 이 기기에만 저장됩니다.<br>
-    👉 <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com → API Keys</a> 에서 발급</p>
-    <div class="api-input-row">
-      <input type="password" id="api-input" placeholder="sk-ant-api03-xxxx..." autocomplete="off">
-      <button class="api-save" onclick="saveKey()">저장</button>
-    </div>
-    <div class="api-status" id="api-status"></div>
-  </div>
-
   <!-- MODE TABS -->
   <div class="section-label">훈련 유형</div>
   <div class="mode-tabs">
@@ -950,33 +936,28 @@ function installApp(){
 function dismissInstall(){ document.getElementById('install-banner').style.display='none'; }
 
 /* ─── CLAUDE API KEY ─── */
-/* ─── API KEY ─── */
-function saveKey(){
-  const v = (document.getElementById('api-input').value||'').trim();
-  const st = document.getElementById('api-status');
-  if(!v.startsWith('sk-ant')){
-    st.className='api-status api-err';
-    st.textContent='❌ Claude API 키는 sk-ant 로 시작해야 합니다.';
-    return;
-  }
-  A.key = v;
-  localStorage.setItem('cg_claude_key', v);
-  st.className='api-status api-ok';
-  st.textContent='✅ 저장 완료! 이제 훈련을 시작하세요.';
-  const card = document.getElementById('api-card');
-  if(card) card.style.borderColor='#80c080';
-}
+/* ─── WORKER PROXY URL ─── */
+// ★ 아래 URL을 본인의 Cloudflare Worker URL로 교체하세요
+const WORKER_URL = 'https://cg-media-proxy.YOUR_ACCOUNT.workers.dev';
 
-(function(){
-  const saved = localStorage.getItem('cg_claude_key');
-  if(saved){ A.key=saved; }
-  const inp = document.getElementById('api-input');
-  const st  = document.getElementById('api-status');
-  if(inp && saved){
-    inp.value = saved;
-    if(st){ st.className='api-status api-ok'; st.textContent='✅ 저장된 API 키를 불러왔습니다.'; }
+/* Claude API 호출: Worker 프록시를 통해 호출 (API 키 노출 없음) */
+async function callClaude(messages, maxTokens) {
+  const r = await fetch(WORKER_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      model: 'claude-haiku-4-5-20251001',
+      max_tokens: maxTokens || 500,
+      messages: messages,
+    }),
+  });
+  if (!r.ok) {
+    const e = await r.json().catch(() => ({}));
+    throw new Error(e.error?.message || 'Worker 오류 ' + r.status);
   }
-})();
+  const d = await r.json();
+  return d.content[0].text.trim().replace(/```json|```/g, '').trim();
+}
 
 /* ─── SELECTION ────────────────────────── */
 function setMode(m){
@@ -1030,10 +1011,7 @@ function buildQs(){
 
 /* ─── START ────────────────────────────── */
 function startTraining(){
-  if(!A.key || A.key.length < 20){
-    alert('먼저 상단의 Anthropic Claude API 키를 입력하고 저장 버튼을 눌러주세요.\n\n발급: https://console.anthropic.com/settings/keys');
-    return;
-  }
+  // Worker 프록시 사용 — API 키 입력 불필요
   buildQs(); A.pos=0; A.ans=[]; A.evs=[];
   const sc=A.mode==='general'?G[A.gi]:U[A.ui];
   show('chat');
@@ -1117,20 +1095,7 @@ async function evalQ(question,answer,situation,diff,qt,unit){
 [난이도]${dl}
 JSON만 출력(마크다운 없이):{"fb":"즉시피드백25자이내","sc":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0}}
 각0~100. 신속대응=소속이름명확, 정확성=사실기반, 태도=침착비폐쇄, 정보보안=미확인비노출, 홍보계보고=홍보계일원화언급`;
-  if(!A.key){ throw new Error('API 키 없음'); }
-  const r=await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'x-api-key':A.key,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true'
-    },
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:400,messages:[{role:'user',content:p}]})
-  });
-  if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'API 오류');}
-  const d=await r.json();
-  const text=d.content[0].text.trim().replace(/```json|```/g,'').trim();
+  const text = await callClaude([{role:'user',content:p}], 400);
   return JSON.parse(text);
 }
 
@@ -1152,20 +1117,7 @@ async function showRes(ld){
 [QA]
 ${A.qs.map((q,i)=>'Q'+(i+1)+':'+q.q+'\nA'+(i+1)+':'+(A.ans[i]||'(무응답)')).join('\n')}
 JSON:{"ts":0,"gr":"A","gc":"총평15자이내","oc":"종합40자이내","cs":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0},"st":["강점1","강점2"],"im":["개선1","개선2","개선3"],"mp":["모범패턴1","모범패턴2"]}`;
-  if(!A.key){ throw new Error('API 키 없음'); }
-  const r=await fetch('https://api.anthropic.com/v1/messages',{
-    method:'POST',
-    headers:{
-      'Content-Type':'application/json',
-      'x-api-key':A.key,
-      'anthropic-version':'2023-06-01',
-      'anthropic-dangerous-direct-browser-access':'true'
-    },
-    body:JSON.stringify({model:'claude-haiku-4-5-20251001',max_tokens:800,messages:[{role:'user',content:p}]})
-  });
-  if(!r.ok){const e=await r.json();throw new Error(e.error?.message||'API 오류');}
-  const d=await r.json();
-  const text=d.content[0].text.trim().replace(/```json|```/g,'').trim();
+  const text = await callClaude([{role:'user',content:p}], 800);
   const j=JSON.parse(text);
   ld.remove();
   renderRes(j);
