@@ -194,63 +194,6 @@ body {
 /* ─────────────────────────────────────────
    SCREEN: START
 ───────────────────────────────────────── */
-/* API KEY */
-.api-card {
-  background: #fffbe6;
-  border: 1.5px solid #f0c840;
-  border-radius: var(--r-lg);
-  padding: 14px;
-  margin-bottom: 14px;
-}
-.api-card-title {
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #5a3a00;
-  margin-bottom: 6px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.api-card p {
-  font-size: 0.76rem;
-  color: #6a4a00;
-  line-height: 1.55;
-  margin-bottom: 10px;
-}
-.api-card a { color: #8a5a00; }
-.api-input-row {
-  display: flex;
-  gap: 8px;
-}
-.api-input-row input {
-  flex: 1;
-  min-width: 0;
-  border: 1.5px solid #e0c060;
-  border-radius: 9px;
-  padding: 9px 11px;
-  font-size: 0.8rem;
-  background: #fffdf5;
-  color: var(--txt);
-  font-family: 'Courier New', monospace;
-  -webkit-appearance: none;
-}
-.api-input-row input:focus { outline: none; border-color: var(--gold); }
-.api-save {
-  background: var(--navy);
-  color: #fff;
-  border: none;
-  border-radius: 9px;
-  padding: 9px 14px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: inherit;
-  white-space: nowrap;
-  -webkit-appearance: none;
-}
-.api-status { font-size: 0.74rem; margin-top: 6px; min-height: 18px; }
-.api-ok  { color: #1a7a4a; }
-.api-err { color: #c0392b; }
 
 /* MODE TABS */
 .mode-tabs {
@@ -634,6 +577,64 @@ body {
 .btn-share:active { opacity: .78; }
 
 /* ─────────────────────────────────────────
+   Q&A REVIEW
+───────────────────────────────────────── */
+.qa-item {
+  border: 1px solid var(--border);
+  border-radius: var(--r);
+  margin-bottom: 10px;
+  overflow: hidden;
+}
+.qa-q {
+  background: var(--navy);
+  color: #fff;
+  padding: 8px 12px;
+  font-size: 0.76rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.qa-q-label { font-size: 0.65rem; opacity: .55; margin-bottom: 2px; }
+.qa-a {
+  padding: 9px 12px;
+  font-size: 0.78rem;
+  color: var(--txt2);
+  line-height: 1.6;
+  background: var(--surf2);
+  border-bottom: 1px solid var(--border);
+  word-break: keep-all;
+}
+.qa-a-label { font-size: 0.65rem; color: var(--txt3); font-weight: 700; margin-bottom: 2px; }
+.qa-a-empty { font-style: italic; color: var(--txt3); }
+.qa-scores {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  padding: 8px 12px;
+  background: var(--surface);
+}
+.qa-score-chip {
+  font-size: 0.68rem;
+  padding: 2px 7px;
+  border-radius: 12px;
+  font-weight: 700;
+  background: var(--surf2);
+  border: 1px solid var(--border);
+  color: var(--txt2);
+}
+.qa-score-chip.s-good { background: #d8f5e8; border-color: #a0e0c0; color: #0a5a30; }
+.qa-score-chip.s-mid  { background: #fff8e0; border-color: #f0d070; color: #7a5000; }
+.qa-score-chip.s-bad  { background: #ffe0de; border-color: #f0a0a0; color: #8a1a10; }
+.qa-fb {
+  padding: 7px 12px;
+  font-size: 0.74rem;
+  color: #6a4800;
+  background: #fff8e0;
+  border-top: 1px solid #f0d880;
+  line-height: 1.5;
+}
+.qa-fb-icon { margin-right: 4px; }
+
+/* ─────────────────────────────────────────
    INSTALL BANNER
 ───────────────────────────────────────── */
 .install-banner {
@@ -826,6 +827,11 @@ body {
     <div id="model-list"></div>
   </div>
 
+  <div class="fb-card" id="qa-review-box" style="display:none">
+    <div class="fb-title">🔍 문항별 답변 리뷰</div>
+    <div id="qa-review-list"></div>
+  </div>
+
 </div><!-- /scroll-area -->
 <div class="bottom-bar">
   <div class="btn-row">
@@ -919,7 +925,8 @@ const DN=['','🟢초급','🟡중급','🔴고급'];
 const TQ=5;
 
 /* ─── STATE ──────────────────────────────── */
-let A={key:'',mode:'general',gi:-1,ui:-1,diff:0,qt:-1,qs:[],pos:0,ans:[],evs:[]};
+const GEMINI_KEY = 'AIzaSyAOQDeGAUStps-yljE5Xd7JfTkwGo5OdAA';
+let A={mode:'general',gi:-1,ui:-1,diff:0,qt:-1,qs:[],pos:0,ans:[],evs:[],evalMode:'ai',geminiKey:GEMINI_KEY};
 
 /* ─── PWA INSTALL ──────────────────────── */
 let deferredPrompt=null;
@@ -935,29 +942,96 @@ function installApp(){
 }
 function dismissInstall(){ document.getElementById('install-banner').style.display='none'; }
 
-/* ─── CLAUDE API KEY ─── */
-/* ─── WORKER PROXY URL ─── */
-// ★ 아래 URL을 본인의 Cloudflare Worker URL로 교체하세요
-const WORKER_URL = 'https://cg-media-proxy.YOUR_ACCOUNT.workers.dev';
-
-/* Claude API 호출: Worker 프록시를 통해 호출 (API 키 노출 없음) */
-async function callClaude(messages, maxTokens) {
-  const r = await fetch(WORKER_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      model: 'claude-haiku-4-5-20251001',
-      max_tokens: maxTokens || 500,
-      messages: messages,
-    }),
-  });
-  if (!r.ok) {
-    const e = await r.json().catch(() => ({}));
-    throw new Error(e.error?.message || 'Worker 오류 ' + r.status);
-  }
+/* ─── Gemini API 호출 ───────────────────── */
+async function callGemini(prompt, maxTokens=600){
+  const key = A.geminiKey;
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`,
+    { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        contents:[{parts:[{text:prompt}]}],
+        generationConfig:{maxOutputTokens:maxTokens, temperature:0.3}
+      })
+    }
+  );
+  if(!r.ok){ const e=await r.json().catch(()=>({})); throw new Error(e.error?.message||'Gemini 오류 '+r.status); }
   const d = await r.json();
-  return d.content[0].text.trim().replace(/```json|```/g, '').trim();
+  return (d.candidates?.[0]?.content?.parts?.[0]?.text||'').trim().replace(/```json|```/g,'').trim();
 }
+
+/* ─── AI 기반 evalQ ─────────────────────── */
+async function evalQwithAI(question, answer, situation, diff, qt, unit){
+  const dl=['','초급','중급','고급'][diff];
+  const qtLabel={'attack':'공격적 질문','info':'정보공개 압박','sns':'SNS 1인미디어'}[qt]||'혼합';
+  const uc = unit ? `\n[소속관서] ${unit}` : '';
+  const prompt=`당신은 해양경찰 언론대응 훈련 평가관입니다. 아래 기준으로 엄격·공정하게 채점하십시오.${uc}
+[상황] ${situation}
+[질의유형] ${qtLabel} / [난이도] ${dl}
+[기자/민원인 질문] ${question}
+[훈련생 답변] ${answer}
+
+【반드시 준수할 채점 기준】
+• 답변이 4단어 이하이거나 질문과 무관하면 모든 항목 15점 이하
+• 소속기관·직책·이름을 밝히지 않으면 신속대응 30점 이하
+• "아니오", "네", "모르겠다" 등 단답이면 정확성·태도 20점 이하
+• 미확인 사실을 단정하면 정보보안 20점 이하
+• 홍보계 일원화를 언급하지 않으면 홍보계보고 40점 이하
+• 방어적·감정적 표현 시 태도 40점 이하
+• 소속명시+확인후안내+침착+홍보계언급 모두 갖춘 경우만 80점 이상 가능
+• 훈련 성실도가 아닌 답변 품질로만 평가
+
+JSON만 출력(마크다운 없이):
+{"fb":"즉시피드백_구체적개선사항_35자이내","sc":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0}}
+각 항목 0~100 정수.`;
+  const text = await callGemini(prompt, 400);
+  return JSON.parse(text);
+}
+
+/* ─── AI 기반 종합 평가 ─────────────────── */
+async function evalFinalWithAI(){
+  const sc = A.mode==='general'?G[A.gi]:U[A.ui];
+  const uc = A.mode==='unit'?`\n[소속관서] ${sc.unit}`:'';
+  const evSum = A.evs.map((e,i)=>{
+    if(!e||!e.sc) return `Q${i+1}: 평가없음`;
+    const avg=Math.round(Object.values(e.sc).reduce((a,b)=>a+b,0)/5);
+    return `Q${i+1}(평균${avg}점): ${e.fb||''}`;
+  }).join('\n');
+  const prompt=`해양경찰 언론대응 훈련 종합평가. 답변 품질만으로 엄격히 평가하세요.${uc}
+[시나리오] ${sc.n} / [난이도] ${['','초급','중급','고급'][A.diff]}
+[QA]
+${A.qs.map((q,i)=>'Q'+(i+1)+': '+q.q+'\nA'+(i+1)+': '+(A.ans[i]||'(무응답)')).join('\n')}
+[문항별 평가 요약]
+${evSum}
+
+【채점 원칙】
+- 단답·무응답은 해당 항목 20점 이하 반영
+- 훈련 성실도가 아닌 실제 답변 품질 기준
+- 강점과 개선점은 실제 답변 내용 근거로 구체적으로
+
+JSON만 출력(마크다운 없이):
+{"ts":0,"gr":"A","gc":"총평8자이내","oc":"종합평가40자이내","cs":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0},"st":["강점1","강점2"],"im":["개선점1","개선점2","개선점3"],"mp":["모범패턴1","모범패턴2"]}`;
+  const text = await callGemini(prompt, 800);
+  return JSON.parse(text);
+}
+
+/* ─── evalQ 분기 (AI or 로컬) ───────────── */
+async function evalQ(question, answer, situation, diff, qt, unit){
+  if(A.evalMode==='ai' && A.geminiKey){
+    try{
+      return await evalQwithAI(question, answer, situation, diff, qt, unit);
+    } catch(e){
+      console.warn('Gemini 평가 실패, 로컬 폴백:', e.message);
+      bbl('system','⚠️ AI 평가 실패 → 로컬 평가로 대체합니다.');
+      return localEval(question, answer, diff, qt);
+    }
+  }
+  return localEval(question, answer, diff, qt);
+}
+
+/* ─── 고도화 로컬 평가 엔진 ──────────────────
+   API 없이 규칙 기반으로 정밀 채점.
+   항목별 베이스 + 가산/감산 방식.
+─────────────────────────────────────────── */
 
 /* ─── SELECTION ────────────────────────── */
 function setMode(m){
@@ -1011,7 +1085,7 @@ function buildQs(){
 
 /* ─── START ────────────────────────────── */
 function startTraining(){
-  // Worker 프록시 사용 — API 키 입력 불필요
+  // 완전 로컬 엔진 — API 불필요, 무료 운영
   buildQs(); A.pos=0; A.ans=[]; A.evs=[];
   const sc=A.mode==='general'?G[A.gi]:U[A.ui];
   show('chat');
@@ -1071,67 +1145,253 @@ async function sendAns(){
   const q=A.qs[A.pos];
   const ld=bbl('system','');
   ld.innerHTML='<span class="ld">평가 중</span>';
-  try{
-    const ev=await evalQ(q.q,text,sc.s,A.diff,q.k,A.mode==='unit'?sc.unit:'');
-    ld.remove();
-    if(document.getElementById('hint-chk').checked) bbl('hint',ev.fb);
-    A.evs.push(ev);
-  }catch(e){
-    ld.remove();
-    bbl('system','(평가 오류, 계속 진행합니다)');
-    A.evs.push({fb:'',sc:{신속대응:70,정확성:70,태도:70,정보보안:70,홍보계보고:70}});
-  }
+  // 로컬 엔진 — 즉시 평가 (API 불필요)
+  await new Promise(r=>setTimeout(r,600)); // 자연스러운 딜레이
+  const ev = await evalQ(q.q, text, sc.s, A.diff, q.k, A.mode==='unit'?sc.unit:'');
+  ld.remove();
+  if(document.getElementById('hint-chk').checked) bbl('hint',ev.fb);
+  A.evs.push(ev);
   A.pos++;
   setTimeout(nextQ,600);
 }
 
-async function evalQ(question,answer,situation,diff,qt,unit){
-  const dl=['','초급','중급','고급'][diff];
-  const uc=unit?`\n[소속관서] ${unit}`:'';
-  const p=`당신은 해양경찰 언론대응 평가관입니다.${uc}
-[상황]${situation}
-[질문]${question}
-[답변]${answer}
-[난이도]${dl}
-JSON만 출력(마크다운 없이):{"fb":"즉시피드백25자이내","sc":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0}}
-각0~100. 신속대응=소속이름명확, 정확성=사실기반, 태도=침착비폐쇄, 정보보안=미확인비노출, 홍보계보고=홍보계일원화언급`;
-  const text = await callClaude([{role:'user',content:p}], 400);
-  return JSON.parse(text);
+/* ─── 고도화 로컬 평가 엔진 ──────────────────
+   API 없이 규칙 기반으로 정밀 채점.
+   항목별 베이스 + 가산/감산 방식.
+─────────────────────────────────────────── */
+function evalQ(question, answer, situation, diff, qt, unit){
+  return Promise.resolve(localEval(question, answer, diff, qt));
 }
 
-/* ─── FINISH ───────────────────────────── */
+function localEval(question, answer, diff, qt){
+  const a = (answer||'').trim();
+  const len = a.length;
+  const words = a.split(/\s+/).filter(w=>w.length>0).length;
+  const diffNum = diff||1;
+
+  /* ── 즉시 실격 체크 ── */
+  if(len === 0){
+    return {
+      fb:'무응답입니다. 반드시 소속·이름을 밝히고 홍보계 일원화를 언급하세요.',
+      sc:{신속대응:0, 정확성:0, 태도:0, 정보보안:0, 홍보계보고:0}
+    };
+  }
+
+  /* ── 단답 감지 ── */
+  const isTooShort = words <= 4;
+  // "아니오", "네", "모르겠습니다" 등 단순 응답
+  const isBlankReply = /^(아니오|아니요|네|예|모르겠|모릅니다|글쎄|없습니다|됩니다|그렇습니다)\.?$/.test(a);
+  // 무관한 응답 (질문 키워드가 전혀 없음)
+  const qWords = question.replace(/[?!.,]/g,'').split(/\s+/).filter(w=>w.length>1).slice(0,5);
+  const relevanceCount = qWords.filter(w=>a.includes(w)).length;
+  const isIrrelevant = relevanceCount === 0 && words > 2; // 너무 무관한 답변
+
+  /* ── 항목별 베이스 점수 (난이도별 엄격도 조정) ── */
+  const base = diffNum === 1 ? 35 : diffNum === 2 ? 28 : 22;
+  let sc = {신속대응:base, 정확성:base, 태도:base+5, 정보보안:base+10, 홍보계보고:base-10};
+  let issues = [];
+  let strengths = [];
+
+  /* ── 단답/실격 적용 ── */
+  if(isBlankReply || isTooShort){
+    Object.keys(sc).forEach(k=>sc[k]=Math.min(sc[k],15));
+    issues.push('단답·짧은 답변 — 성실한 문장으로 답해야 합니다');
+  }
+  if(isIrrelevant){
+    Object.keys(sc).forEach(k=>sc[k]=Math.min(sc[k],18));
+    issues.push('질문과 무관한 답변');
+  }
+
+  /* ── [신속대응] 소속·이름 명시 ── */
+  const hasUnit = /해경서|해경청|해양경찰|특경단|경비함|파출소/.test(a);
+  const hasRole = /(경사|경위|경감|경정|총경|과장|서장|담당자|계장|팀장)/.test(a);
+  const hasSelf = /저는|안녕하세요|본인은|제가|저의 소속/.test(a);
+  const hasName = /[가-힣]{2,3}(입니다|경사|경위|경감|계장)/.test(a);
+
+  if(hasUnit && (hasRole||hasName)){ sc.신속대응 += 45; strengths.push('소속·직책 명확히 밝힘'); }
+  else if(hasUnit || hasRole){ sc.신속대응 += 22; issues.push('소속 또는 직책 중 하나만 명시'); }
+  else if(hasSelf){ sc.신속대응 += 10; issues.push('소속·이름 미명시 (필수)'); }
+  else { issues.push('소속·이름을 반드시 먼저 밝혀야 합니다'); }
+
+  /* ── [정확성] 사실 기반·신중한 답변 ── */
+  const hasConfirming = /확인\s*(중|후|되는대로|하겠|해보)|파악\s*중|조사\s*중|검토\s*중|파악하여/.test(a);
+  const hasFactual = /현재|공식|발표|확인된|파악된|보고된/.test(a);
+  const hasRash = /분명히|절대|확실히|틀림없이|당연히|무조건/.test(a);
+  const hasWrongInfo = /아직 모릅니다|알 수 없습니다/.test(a) && !hasConfirming;
+
+  if(hasConfirming){ sc.정확성 += 38; strengths.push('확인 후 안내 원칙 준수'); }
+  else if(hasFactual){ sc.정확성 += 20; }
+  if(hasRash){ sc.정확성 -= 25; sc.정보보안 -= 30; issues.push('미확인 사실 단정 표현'); }
+  if(hasWrongInfo){ sc.정확성 -= 15; }
+  if(!hasConfirming && !hasFactual){ issues.push('확인 후 안내 원칙을 명시하세요'); }
+
+  /* ── [태도] 침착·공손·비방어적 ── */
+  const hasPolite = /죄송|감사|이해|양해|노력|최선|협조/.test(a);
+  const hasCalmPhrase = /침착|공정|공식|정식|절차|원칙/.test(a);
+  const hasDefensive = /화가|억울|말도 안|무슨 소리|그런 일 없|사실이 아니|틀렸습니다|잘못됐습니다/.test(a);
+  const hasEmotional = /화나다|억울하|분하|왜 자꾸|그만하세요/.test(a);
+  const hasRespectful = /말씀해|드리겠습니다|안내드|설명드|전달드/.test(a);
+
+  if(hasPolite && !hasDefensive){ sc.태도 += 30; strengths.push('공손하고 침착한 태도'); }
+  if(hasCalmPhrase){ sc.태도 += 10; }
+  if(hasRespectful){ sc.태도 += 10; }
+  if(hasDefensive){ sc.태도 -= 35; issues.push('방어적 표현 사용 — 침착하게 대응'); }
+  if(hasEmotional){ sc.태도 -= 40; issues.push('감정적 표현 — 공식 담당자 태도 유지'); }
+
+  /* ── [정보보안] 민감정보 보호 ── */
+  const hasSafeInfo = /공식\s*(채널|브리핑|발표)|확인\s*후|조사\s*결과|발표 예정/.test(a);
+  const hasLeakRisk = /수사\s*중인\s*세부|내부\s*문건|비공개\s*자료|선원\s*명단|실명|개인정보/.test(a);
+  const hasProperRefusal = /말씀드리기\s*어렵|공개\s*(할 수 없|되지 않)|확인\s*후\s*안내/.test(a);
+
+  if(hasSafeInfo || hasProperRefusal){ sc.정보보안 += 30; }
+  if(hasLeakRisk){ sc.정보보안 -= 40; issues.push('민감정보 노출 위험'); }
+  if(hasRash){ /* 위에서 이미 감점 */ }
+  if(!hasSafeInfo && !hasProperRefusal && !hasLeakRisk){ issues.push('민감정보 처리 원칙을 명시하세요'); }
+
+  /* ── [홍보계보고] 창구 일원화 ── */
+  const hasHongbo = /홍보(계|실|팀|담당)|일원화|공식\s*창구|공식\s*채널|홍보\s*통해/.test(a);
+  const hasRedirect = /담당\s*부서|관련\s*부서|해당\s*부서|정식\s*경로|공식\s*루트/.test(a);
+  const hasContactRequest = /연락처|연락\s*주|남겨\s*주|드리겠습니다/.test(a);
+
+  if(hasHongbo){ sc.홍보계보고 += 60; strengths.push('홍보계 일원화 원칙 언급'); }
+  else if(hasRedirect){ sc.홍보계보고 += 35; issues.push('홍보계를 직접 언급하면 더 명확합니다'); }
+  else { issues.push('홍보계 일원화 원칙을 반드시 언급하세요'); }
+  if(hasContactRequest){ sc.홍보계보고 += 10; }
+
+  /* ── 답변 길이·충실도 보정 ── */
+  if(!isTooShort && !isBlankReply){
+    if(len >= 80 && words >= 15){ Object.keys(sc).forEach(k=>sc[k]=Math.min(sc[k]+8,100)); }
+    if(len >= 150 && words >= 25){ Object.keys(sc).forEach(k=>sc[k]=Math.min(sc[k]+5,100)); }
+  }
+
+  /* ── 질의 유형별 보정 ── */
+  if(qt==='attack'){
+    // 공격적 질문 — 비방어적이어야 특히 중요
+    if(!hasDefensive && !hasEmotional && hasPolite){ sc.태도 = Math.min(sc.태도+10,100); }
+  }
+  if(qt==='info'){
+    // 정보공개 압박 — 정보보안 원칙이 핵심
+    if(hasProperRefusal || hasSafeInfo){ sc.정보보안 = Math.min(sc.정보보안+10,100); }
+  }
+  if(qt==='sns'){
+    // SNS 질문 — 공식 창구 강조가 중요
+    if(hasHongbo){ sc.홍보계보고 = Math.min(sc.홍보계보고+10,100); }
+  }
+
+  /* ── 범위 제한 ── */
+  Object.keys(sc).forEach(k=>sc[k]=Math.max(0,Math.min(100,Math.round(sc[k]))));
+
+  /* ── 피드백 메시지 생성 ── */
+  let fb = '';
+  if(isBlankReply || isTooShort){
+    fb = '단답 불가 — 소속·직책 밝히고 홍보계 일원화를 명시하세요';
+  } else if(issues.length > 0){
+    fb = '개선: ' + issues[0];
+    if(issues[1]) fb += ' / ' + issues[1];
+  } else if(strengths.length >= 3){
+    fb = '우수: ' + strengths.slice(0,2).join(', ');
+  } else {
+    fb = strengths.length>0 ? (strengths[0]+' — 홍보계 일원화도 챙기세요') : '소속 명시 및 홍보계 일원화를 추가하세요';
+  }
+  if(fb.length > 42) fb = fb.slice(0,42);
+
+  return {fb, sc, issues, strengths};
+}
+
+
 async function finish(){
   document.getElementById('prog').style.width='100%';
   document.getElementById('chat-in').disabled=true;
   document.getElementById('chat-send').disabled=true;
   const ld=bbl('system','');
   ld.innerHTML='<span class="ld">종합 평가 생성 중</span>';
-  try{await showRes(ld);}catch(e){ld.remove();fallback();}
+
+  if(A.evalMode==='ai' && A.geminiKey){
+    try{
+      await new Promise(r=>setTimeout(r,500));
+      const j = await evalFinalWithAI();
+      ld.remove();
+      renderRes(j);
+      return;
+    } catch(e){
+      console.warn('Gemini 종합평가 실패, 로컬 폴백:', e.message);
+      bbl('system','⚠️ AI 종합평가 실패 → 로컬 평가로 대체합니다.');
+    }
+  }
+  await new Promise(r=>setTimeout(r,900));
+  ld.remove();
+  fallback();
 }
 
-async function showRes(ld){
-  const sc=A.mode==='general'?G[A.gi]:U[A.ui];
-  const uc=A.mode==='unit'?`\n[소속관서]${sc.unit}`:'';
-  const p=`해양경찰 언론대응 훈련 종합평가. JSON만 출력(마크다운 없이).${uc}
-[시나리오]${sc.n}[난이도]${DN[A.diff]}
-[QA]
-${A.qs.map((q,i)=>'Q'+(i+1)+':'+q.q+'\nA'+(i+1)+':'+(A.ans[i]||'(무응답)')).join('\n')}
-JSON:{"ts":0,"gr":"A","gc":"총평15자이내","oc":"종합40자이내","cs":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0},"st":["강점1","강점2"],"im":["개선1","개선2","개선3"],"mp":["모범패턴1","모범패턴2"]}`;
-  const text = await callClaude([{role:'user',content:p}], 800);
-  const j=JSON.parse(text);
-  ld.remove();
-  renderRes(j);
-}
+/* showRes는 로컬 fallback으로 통합 */
 
 function fallback(){
-  const avg=Math.round(A.evs.reduce((s,e)=>{
-    const v=Object.values(e.sc||{});return s+(v.length?v.reduce((a,b)=>a+b,0)/v.length:65);
-  },0)/(A.evs.length||1));
-  renderRes({ts:avg,gr:avg>=85?'A':avg>=70?'B':avg>=55?'C':'D',gc:'훈련 완료',oc:'결과를 검토하세요.',
-    cs:{신속대응:avg,정확성:avg,태도:avg,정보보안:avg,홍보계보고:avg},
-    st:['훈련에 성실히 참여하였습니다.'],
-    im:['홍보계 일원화 원칙을 숙지하세요.','정확한 정보만 전달하는 습관을 기르세요.'],
-    mp:['안녕하세요, ○○서 ○○과 경사 ○○○입니다. 확인 후 홍보실을 통해 답변드리겠습니다. 연락처를 남겨 주시겠습니까?']});
+  // evs에서 실제 채점 데이터 활용
+  const validEvs = A.evs.filter(e=>e&&e.sc&&Object.keys(e.sc).length>0);
+  let cs = {신속대응:0, 정확성:0, 태도:0, 정보보안:0, 홍보계보고:0};
+  if(validEvs.length > 0){
+    validEvs.forEach(e=>{ Object.keys(cs).forEach(k=>{ cs[k]+=(e.sc[k]||0); }); });
+    Object.keys(cs).forEach(k=>cs[k]=Math.round(cs[k]/validEvs.length));
+  } else {
+    A.ans.forEach((ans,i)=>{
+      const ev = localEval(A.qs[i]?A.qs[i].q:'', ans, A.diff, A.qs[i]?A.qs[i].k:'attack');
+      Object.keys(cs).forEach(k=>cs[k]+=(ev.sc[k]||0));
+    });
+    const n = A.ans.length||1;
+    Object.keys(cs).forEach(k=>cs[k]=Math.round(cs[k]/n));
+  }
+  const avg = Math.round(Object.values(cs).reduce((a,b)=>a+b,0)/5);
+  const gr  = avg>=85?'A':avg>=70?'B':avg>=55?'C':'D';
+  const gcMap = {A:'우수',B:'양호',C:'보통',D:'미흡'};
+
+  // ─── 강점 분석 ───
+  const st = [];
+  if(cs.신속대응 >= 70) st.push('소속·직책을 명확히 밝히는 습관이 잘 갖춰져 있습니다.');
+  else if(cs.신속대응 >= 50) st.push('소속 명시를 시도했으나 직책까지 구체적으로 밝히면 더 효과적입니다.');
+  if(cs.홍보계보고 >= 70) st.push('홍보계 일원화 원칙을 적절히 활용하여 창구 혼선을 방지했습니다.');
+  if(cs.정확성 >= 70) st.push('확인 후 안내 원칙을 준수하며 사실 기반의 신중한 답변을 보여줬습니다.');
+  if(cs.태도 >= 75) st.push('공격적 질문에도 침착하고 공손한 태도를 일관되게 유지했습니다.');
+  if(cs.정보보안 >= 75) st.push('민감 정보 노출을 자제하고 공식 발표 원칙을 잘 지켰습니다.');
+  if(st.length === 0 && avg >= 50) st.push('전반적인 훈련 참여 자세가 성실했습니다.');
+  if(st.length === 0) st.push('훈련을 완료하였습니다. 아래 개선사항을 숙지하세요.');
+
+  // ─── 개선점 분석 (점수 낮은 항목 순) ───
+  const im = [];
+  const sortedItems = Object.entries(cs).sort((a,b)=>a[1]-b[1]);
+  sortedItems.forEach(([k,v])=>{
+    if(im.length >= 4) return;
+    if(v < 50){
+      if(k==='신속대응') im.push('답변 시작 시 "○○서 ○○과 경사 ○○○입니다"처럼 소속과 이름을 반드시 먼저 밝히세요.');
+      if(k==='홍보계보고') im.push('모든 취재·질의에 "홍보계를 통해 공식 안내드리겠습니다"를 반드시 포함하세요.');
+      if(k==='정확성') im.push('확인되지 않은 내용은 "현재 파악 중이며, 확인 후 안내드리겠습니다"로 대응하세요.');
+      if(k==='태도') im.push('공격적 질문에도 방어적·감정적으로 반응하지 말고 침착하고 공손하게 대응하세요.');
+      if(k==='정보보안') im.push('수사·조사 중인 사항은 단정적으로 답하지 말고 공식 채널을 통한 발표를 안내하세요.');
+    } else if(v < 70 && im.length < 3){
+      if(k==='신속대응') im.push('소속뿐 아니라 직책·이름까지 명확히 밝히는 습관을 기르세요.');
+      if(k==='홍보계보고') im.push('홍보계 일원화를 더 명확하게 "홍보계로 일원화"라고 직접 표현하세요.');
+      if(k==='정확성') im.push('"확인 중" 표현으로 신중함을 보여주세요.');
+    }
+  });
+  if(im.length === 0) im.push('현재 수준을 유지하며 정확한 정보만 전달하는 습관을 지속하세요.');
+
+  // ─── 총평 ───
+  const blankCount = A.ans.filter(a=>!a||a.trim().length<5).length;
+  const shortCount = A.ans.filter(a=>a&&a.split(/\s+/).filter(w=>w).length<=4).length;
+  let oc = '';
+  if(blankCount >= 2) oc = `${blankCount}문항 무응답/단답 — 실제 상황처럼 성실하게 답변해야 합니다.`;
+  else if(shortCount >= 2) oc = `${shortCount}문항에서 단답 — 충실한 문장 답변이 필요합니다.`;
+  else if(avg >= 80) oc = '훌륭한 언론 대응 능력을 갖추고 있습니다. 실전에서도 유지하세요.';
+  else if(avg >= 65) oc = '기본 대응 역량을 갖췄습니다. 홍보계 언급과 소속 명시를 더 철저히 하세요.';
+  else if(avg >= 50) oc = '핵심 원칙(소속명시·홍보계 일원화)이 아직 부족합니다. 반복 훈련을 권장합니다.';
+  else oc = '답변 품질 개선이 필요합니다. 모범 패턴을 숙지하고 재훈련하세요.';
+
+  renderRes({
+    ts: avg, gr, gc: gcMap[gr], oc, cs, st, im,
+    mp:[
+      '안녕하세요, ○○서 ○○과 경사 ○○○입니다. 해당 사항은 현재 확인 중이며, 공식 내용은 홍보계를 통해 안내드리겠습니다. 연락처를 남겨 주시겠습니까?',
+      '현재 상황은 파악 중에 있습니다. 확인된 사항은 홍보계를 통한 공식 채널로 신속히 안내드리겠습니다. 미확인 정보는 말씀드리기 어렵습니다.'
+    ]
+  });
 }
 
 function renderRes(r){
@@ -1158,6 +1418,29 @@ function renderRes(r){
     const ml=document.getElementById('model-list'); ml.innerHTML='';
     r.mp.forEach((p,i)=>ml.innerHTML+=`<div class="fb-item"><span class="fi" style="color:#5ab8f0">💬</span><span><strong>패턴${i+1}:</strong> ${esc(p)}</span></div>`);
   }
+
+  // Q&A 리뷰 섹션 렌더링
+  if(A.qs.length > 0){
+    document.getElementById('qa-review-box').style.display='block';
+    const rl=document.getElementById('qa-review-list'); rl.innerHTML='';
+    A.qs.forEach((q,i)=>{
+      const ans = A.ans[i]||'';
+      const ev = A.evs[i]||null;
+      const scoreHtml = ev&&ev.sc ? Object.entries(ev.sc).map(([n,v])=>{
+        const cls = v>=70?'s-good':v>=50?'s-mid':'s-bad';
+        return `<span class="qa-score-chip ${cls}">${n} ${v}</span>`;
+      }).join('') : '';
+      const fbHtml = ev&&ev.fb ? `<div class="qa-fb"><span class="qa-fb-icon">💡</span>${esc(ev.fb)}</div>` : '';
+      rl.innerHTML+=`
+        <div class="qa-item">
+          <div class="qa-q"><div class="qa-q-label">Q${i+1} · 기자/민원인 질문</div>${esc(q.q)}</div>
+          <div class="qa-a"><div class="qa-a-label">내 답변</div>${ans?esc(ans):'<span class="qa-a-empty">(무응답)</span>'}</div>
+          ${scoreHtml?`<div class="qa-scores">${scoreHtml}</div>`:''}
+          ${fbHtml}
+        </div>`;
+    });
+  }
+
   document.getElementById('chat-scroll').scrollTop=0;
 }
 
@@ -1188,6 +1471,7 @@ function restart(){
   document.querySelectorAll('.chip').forEach(b=>b.className='chip');
   document.getElementById('uinfo').style.display='none';
   document.getElementById('model-box').style.display='none';
+  document.getElementById('qa-review-box').style.display='none';
   document.getElementById('back-btn').style.display='none';
   setMode(A.mode);
   show('start');
