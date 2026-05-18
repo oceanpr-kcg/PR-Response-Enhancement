@@ -310,6 +310,55 @@ body {
 .chip.c-d1      { border-color:#18825a; background:#e8f8ee; color:#0a5a30; }
 .chip.c-d2      { border-color:#f0a820; background:#fff8e0; color:#7a5000; }
 .chip.c-d3      { border-color:#c8352a; background:#fff0ee; color:#8a1a10; }
+.chip.c-purple  { border-color:#7c4dba; background:#f2eeff; color:#4a2090; }
+
+.ai-mode-info {
+  background: linear-gradient(135deg, #f2eeff 0%, #eef6ff 100%);
+  border: 1px solid #c8aaee;
+  border-radius: var(--r);
+  padding: 9px 12px;
+  font-size: 0.74rem;
+  color: #4a2090;
+  line-height: 1.6;
+  margin-top: 8px;
+  display: none;
+}
+.ai-mode-info.show { display: block; }
+
+/* AI 기자 타이핑 애니메이션 */
+.bbl-reporter.typing { background: #1a3a5c; min-width: 80px; }
+.typing-dots {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  height: 20px;
+  padding: 2px 4px;
+}
+.typing-dots span {
+  width: 6px; height: 6px;
+  background: rgba(255,255,255,.65);
+  border-radius: 50%;
+  animation: tdot 1.1s ease-in-out infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay: .18s; }
+.typing-dots span:nth-child(3) { animation-delay: .36s; }
+@keyframes tdot { 0%,60%,100%{transform:translateY(0);opacity:.4} 30%{transform:translateY(-6px);opacity:1} }
+
+/* AI 모드 뱃지 */
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: linear-gradient(135deg,#7c4dba,#1e7fd4);
+  color: #fff;
+  font-size: 0.62rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 10px;
+  letter-spacing: 0.3px;
+  vertical-align: middle;
+  margin-left: 4px;
+}
 
 /* PRIMARY BUTTON */
 .btn-primary {
@@ -1058,6 +1107,20 @@ body {
     <button class="chip" onclick="pickD(3,this)"><div class="cl">🔴 고급</div><div class="cs">복합 압박</div></button>
   </div>
 
+  <!-- AI 출제 방식 -->
+  <div class="section-label" style="margin-top:14px">출제 방식</div>
+  <div class="chip-grid">
+    <button class="chip" id="qmode-fixed" onclick="setQMode('fixed',this)">
+      <div class="cl">📋 고정 문제은행</div>
+      <div class="cs">시나리오별 선별 질문</div>
+    </button>
+    <button class="chip c-purple" id="qmode-ai" onclick="setQMode('ai',this)">
+      <div class="cl">🤖 AI 즉흥 출제</div>
+      <div class="cs">답변 반응형 실시간 생성</div>
+    </button>
+  </div>
+  <div class="ai-mode-info" id="ai-mode-info"></div>
+
 </div><!-- /scroll-area -->
 <div class="bottom-bar">
   <button class="btn-primary" id="start-btn" onclick="startTraining()" disabled>훈련 유형 · 질의 유형 · 난이도를 선택하세요</button>
@@ -1076,6 +1139,7 @@ body {
       <span class="pill pill-red" id="m-df">-</span>
       <span class="pill pill-gold" id="m-qt">-</span>
       <span class="pill pill-teal" id="m-un" style="display:none">-</span>
+      <span class="pill pill-purple" id="m-ai" style="display:none">✨ AI출제</span>
     </div>
     <span class="q-num" id="q-num">1 / 5</span>
   </div>
@@ -1224,10 +1288,82 @@ const TQ=5;
 
 /* ─── STATE ──────────────────────────────── */
 const GEMINI_KEY = 'AIzaSyAOQDeGAUStps-yljE5Xd7JfTkwGo5OdAA';
-let A={mode:'general',gi:-1,ui:-1,diff:0,qt:-1,qs:[],pos:0,ans:[],evs:[],evalMode:'ai',geminiKey:GEMINI_KEY,trainee:null};
+let A={mode:'general',gi:-1,ui:-1,diff:0,qt:-1,qs:[],pos:0,ans:[],evs:[],evalMode:'ai',geminiKey:GEMINI_KEY,trainee:null,dynamicQ:true};
+
+/* ─── 출제 방식 선택 ────────────────────── */
+function setQMode(mode, btn){
+  A.dynamicQ = (mode === 'ai');
+  document.getElementById('qmode-fixed').className = 'chip';
+  document.getElementById('qmode-ai').className = 'chip';
+  if(mode === 'ai'){
+    btn.className = 'chip c-purple';
+    const info = document.getElementById('ai-mode-info');
+    info.className = 'ai-mode-info show';
+    info.innerHTML = '🤖 <strong>AI 즉흥 출제:</strong> 매 질문을 Gemini AI가 실시간으로 생성합니다. 이전 답변이 허술하면 더 날카롭게 추궁하고, 잘 답하면 새로운 각도로 파고듭니다. 채점도 AI가 직접 수행합니다.';
+  } else {
+    btn.className = 'chip c-d1';
+    const info = document.getElementById('ai-mode-info');
+    info.className = 'ai-mode-info show';
+    info.innerHTML = '📋 <strong>고정 문제은행:</strong> 시나리오별로 미리 선별된 질문으로 훈련합니다. 인터넷 없이도 진행 가능합니다.';
+  }
+  upd();
+}
+
+/* ─── AI 즉흥 질문 생성 ─────────────────── */
+async function generateDynamicQuestion(pos, situation, scenName, diff, unit, prevQA, qtKey){
+  const diffLabel = ['','초급','중급','고급'][diff];
+  const qtDesc = {
+    attack:'공격적·책임추궁형 (날카롭고 감정 자극적)',
+    info:'정보공개 압박형 (비공개 사유 집요하게 추궁)',
+    sns:'SNS·1인미디어형 (구독자 언급, 실시간 압박, 접근권 주장)'
+  }[qtKey] || '혼합형';
+
+  const prevCtx = prevQA.length > 0
+    ? prevQA.map((p,i)=>`[Q${i+1}] ${p.q}\n[A${i+1}] ${p.a||'(무응답)'}`).join('\n\n')
+    : '없음 (첫 번째 질문)';
+
+  const reactGuide = prevQA.length > 0 ? `
+※ 이전 답변 분석 후 반응:
+- 답변이 모호하거나 소속/이름을 안 밝혔다면 → 그 점을 집요하게 파고들어라
+- 홍보계 언급이 없었다면 → "왜 공식 창구 없이 직접 답하느냐"고 문제삼아라
+- 답변이 너무 짧거나 무성의했다면 → 더 강하게 구체적 수치·사실 요구
+- 답변이 훌륭했다면 → 완전히 다른 각도·새 의혹으로 전환` : '';
+
+  const prompt = `당신은 실제 취재 현장에서 해양경찰을 추궁하는 기자/민원인입니다.
+[사고 현장 개요] ${situation}
+[시나리오 제목] ${scenName}${unit ? '\n[관할 관서] ' + unit : ''}
+[질의 유형] ${qtDesc}
+[훈련 난이도] ${diffLabel}
+[이번이 몇 번째 질문] ${pos+1}번째 / 총 5번째${reactGuide}
+
+[이전 대화 내용]
+${prevCtx}
+
+【출력 규칙 — 반드시 준수】
+• 오직 질문 문장 하나만 출력 (다른 텍스트 절대 금지)
+• 한국어, 실제 기자처럼 압박감 있게
+• 구체적 수치·사실·시간 등을 물어 허점 공략
+• 50자 이내로 간결하게
+• 따옴표나 기호 없이 질문만`;
+
+  const raw = await callGemini(prompt, 120);
+  return raw.replace(/^["「『【\[]\s*|\s*["」』】\]]\s*$/g,'').replace(/^Q\d+[:：]\s*/,'').trim();
+}
+
+/* ─── AI 즉시 피드백 생성 (evalQ) ─────── */
+async function evalQ(question, answer, situation, diff, qt, unit){
+  if(A.geminiKey){
+    try{
+      return await evalQwithAI(question, answer, situation, diff, qt, unit);
+    } catch(e){
+      console.warn('Gemini 평가 실패, 로컬 폴백:', e.message);
+    }
+  }
+  return localEval(question, answer, diff, qt);
+}
 
 /* ─── 관리자 기록 저장 ──────────────────── */
-const ADMIN_PW = 'pr2026';  // ← 관리자 비밀번호 (필요시 변경)
+const ADMIN_PW = 'coast2024';  // ← 관리자 비밀번호 (필요시 변경)
 const RECORD_KEY = 'cg_training_records';
 
 function saveRecord(result){
@@ -1531,8 +1667,9 @@ function buildQs(){
 
 /* ─── START ────────────────────────────── */
 function startTraining(){
-  // 완전 로컬 엔진 — API 불필요, 무료 운영
   buildQs(); A.pos=0; A.ans=[]; A.evs=[];
+  // AI 즉흥 모드: 질문 슬롯을 null로 초기화 (nextQ에서 생성)
+  if(A.dynamicQ) A.qs = Array(TQ).fill(null);
   const sc=A.mode==='general'?G[A.gi]:U[A.ui];
   show('chat');
   document.getElementById('back-btn').style.display='block';
@@ -1542,21 +1679,69 @@ function startTraining(){
   const un=document.getElementById('m-un');
   if(A.mode==='unit'){un.style.display='';un.textContent='🏢 '+sc.unit;}
   else un.style.display='none';
+  // AI 뱃지 표시
+  const aiBadgeEl = document.getElementById('m-ai');
+  if(aiBadgeEl) aiBadgeEl.style.display = A.dynamicQ ? '' : 'none';
   document.getElementById('msgs').innerHTML='';
   bbl('system','훈련을 시작합니다. 현장 담당자로서 실제처럼 답변해 주세요.');
+  if(A.dynamicQ) bbl('system','🤖 AI 즉흥 출제 모드 — Gemini가 답변에 반응해 질문을 실시간 생성합니다.');
   if(A.mode==='unit') bbl('system','🏢 '+sc.unit+' 맞춤 시나리오: '+sc.n);
   bbl('system','📋 '+sc.s);
   setTimeout(nextQ,700);
 }
 
 /* ─── CHAT ─────────────────────────────── */
-function nextQ(){
+async function nextQ(){
   if(A.pos>=TQ){finish();return;}
   document.getElementById('prog').style.width=(A.pos/TQ*100)+'%';
   document.getElementById('q-num').textContent=(A.pos+1)+' / '+TQ;
-  bbl('reporter',A.qs[A.pos].q);
+
   const ci=document.getElementById('chat-in');
   const cs=document.getElementById('chat-send');
+  ci.disabled=true; cs.disabled=true;
+
+  if(A.dynamicQ && A.geminiKey){
+    /* ── AI 즉흥 출제 모드 ── */
+    const sc = A.mode==='general'?G[A.gi]:U[A.ui];
+
+    // 타이핑 중 애니메이션 버블
+    const wrap = document.getElementById('msgs');
+    const typingBbl = document.createElement('div');
+    typingBbl.className = 'bbl bbl-reporter typing';
+    typingBbl.innerHTML = '<div class="rlabel">📰 기자 / 민원인 <span class="ai-badge">✨ AI</span></div><div class="typing-dots"><span></span><span></span><span></span></div>';
+    wrap.appendChild(typingBbl);
+    const sa=document.getElementById('chat-scroll');
+    setTimeout(()=>sa.scrollTop=sa.scrollHeight,50);
+
+    // 이전 Q&A 컨텍스트
+    const prevQA = A.qs.slice(0, A.pos).map((q,i)=>({q:q?q.q:'', a:A.ans[i]||''}));
+    // 랜덤 모드면 qt를 랜덤 선택
+    const qtKey = A.qt===3 ? ['attack','info','sns'][Math.floor(Math.random()*3)] : ['attack','info','sns'][A.qt];
+
+    try{
+      const unit = A.mode==='unit'?sc.unit:'';
+      const genQ = await generateDynamicQuestion(A.pos, sc.s, sc.n, A.diff, unit, prevQA, qtKey);
+      typingBbl.remove();
+      if(!A.qs[A.pos]) A.qs[A.pos]={q:genQ,k:qtKey};
+      else A.qs[A.pos]={q:genQ,k:qtKey};
+      // 실제 질문 버블
+      const qBbl = document.createElement('div');
+      qBbl.className = 'bbl bbl-reporter';
+      qBbl.innerHTML = '<div class="rlabel">📰 기자 / 민원인 <span class="ai-badge">✨ AI</span></div>'+esc(genQ);
+      wrap.appendChild(qBbl);
+      setTimeout(()=>sa.scrollTop=sa.scrollHeight,50);
+    } catch(e){
+      typingBbl.remove();
+      console.warn('AI 질문 생성 실패, 기존 풀 사용:', e.message);
+      // 폴백: 기존 풀에서 사용
+      if(A.qs[A.pos]) bbl('reporter', A.qs[A.pos].q);
+      else bbl('system','⚠️ 질문 생성에 실패했습니다. 다시 시도해주세요.');
+    }
+  } else {
+    /* ── 고정 문제은행 모드 ── */
+    bbl('reporter', A.qs[A.pos].q);
+  }
+
   ci.disabled=false; cs.disabled=false; ci.focus();
 }
 
@@ -1590,10 +1775,10 @@ async function sendAns(){
   const sc=A.mode==='general'?G[A.gi]:U[A.ui];
   const q=A.qs[A.pos];
   const ld=bbl('system','');
-  ld.innerHTML='<span class="ld">평가 중</span>';
-  // 로컬 엔진 — 즉시 평가 (API 불필요)
-  await new Promise(r=>setTimeout(r,600)); // 자연스러운 딜레이
-  const ev = await evalQ(q.q, text, sc.s, A.diff, q.k, A.mode==='unit'?sc.unit:'');
+  ld.innerHTML = A.geminiKey
+    ? '<span class="ld">AI 채점 중</span>'
+    : '<span class="ld">평가 중</span>';
+  const ev = await evalQ(q?q.q:'', text, sc.s, A.diff, q?q.k:'attack', A.mode==='unit'?sc.unit:'');
   ld.remove();
   if(document.getElementById('hint-chk').checked) bbl('hint',ev.fb);
   A.evs.push(ev);
@@ -1601,12 +1786,16 @@ async function sendAns(){
   setTimeout(nextQ,600);
 }
 
-/* ─── 고도화 로컬 평가 엔진 ──────────────────
-   API 없이 규칙 기반으로 정밀 채점.
-   항목별 베이스 + 가산/감산 방식.
-─────────────────────────────────────────── */
-function evalQ(question, answer, situation, diff, qt, unit){
-  return Promise.resolve(localEval(question, answer, diff, qt));
+/* ─── 평가 함수 — AI 우선, 로컬 폴백 ──────── */
+async function evalQ(question, answer, situation, diff, qt, unit){
+  if(A.geminiKey){
+    try{
+      return await evalQwithAI(question, answer, situation, diff, qt, unit);
+    } catch(e){
+      console.warn('Gemini 평가 실패, 로컬 폴백:', e.message);
+    }
+  }
+  return localEval(question, answer, diff, qt);
 }
 
 function localEval(question, answer, diff, qt){
@@ -1958,6 +2147,8 @@ async function shareResult(){
 /* init */
 show('start');
 updTrainee();
+// AI 즉흥 출제를 기본값으로 활성화
+setQMode('ai', document.getElementById('qmode-ai'));
 </script>
 
 <!-- ═══════════════════════════════════════
