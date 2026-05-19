@@ -1287,25 +1287,29 @@ const DN=['','🟢초급','🟡중급','🔴고급'];
 const TQ=5;
 
 /* ─── STATE ──────────────────────────────── */
-let A={mode:'general',gi:-1,ui:-1,diff:0,qt:-1,qs:[],pos:0,ans:[],evs:[],evalMode:'ai',geminiKey:'__anthropic__',trainee:null,dynamicQ:true};
+/* ─── Gemini API 키 (내장) ──────────────── */
+const GEMINI_KEY = 'AIzaSyAOQDeGAUStps-yljE5Xd7JfTkwGo5OdAA';
 
-/* ─── Claude API 호출 (Claude.ai 구독 내 무료) ─ */
-async function callClaude(prompt, maxTokens=800){
-  const r = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: maxTokens,
-      messages: [{role:'user', content: prompt}]
-    })
-  });
+let A={mode:'general',gi:-1,ui:-1,diff:0,qt:-1,qs:[],pos:0,ans:[],evs:[],evalMode:'ai',trainee:null,dynamicQ:true};
+
+/* ─── Gemini API 호출 ───────────────────── */
+async function callGemini(prompt, maxTokens=800){
+  const r = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+    { method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        contents:[{parts:[{text:prompt}]}],
+        generationConfig:{maxOutputTokens:maxTokens, temperature:0.9}
+      })
+    }
+  );
   if(!r.ok){
     const e = await r.json().catch(()=>({}));
-    throw new Error(e.error?.message || 'API 오류 ' + r.status);
+    throw new Error(e.error?.message || 'Gemini 오류 ' + r.status);
   }
   const d = await r.json();
-  return (d.content?.[0]?.text||'').trim().replace(/```json|```/g,'').trim();
+  return (d.candidates?.[0]?.content?.parts?.[0]?.text||'').trim().replace(/```json|```/g,'').trim();
 }
 
 /* ─── 출제 방식 선택 ────────────────────── */
@@ -1317,7 +1321,7 @@ function setQMode(mode, btn){
     btn.className = 'chip c-purple';
     const info = document.getElementById('ai-mode-info');
     info.className = 'ai-mode-info show';
-    info.innerHTML = '🤖 <strong>AI 즉흥 출제:</strong> Claude AI가 답변에 반응해 질문을 실시간 생성합니다. 이전 답변이 허술하면 더 날카롭게 추궁하고, 잘 답하면 새로운 각도로 파고듭니다. 채점도 AI가 직접 수행합니다.';
+    info.innerHTML = '🤖 <strong>AI 즉흥 출제:</strong> Gemini AI가 답변에 반응해 질문을 실시간 생성합니다. API 키가 없으면 자동으로 고정 문제은행으로 전환됩니다.';
   } else {
     btn.className = 'chip c-d1';
     const info = document.getElementById('ai-mode-info');
@@ -1364,7 +1368,7 @@ ${prevCtx}
 • 50자 이내로 간결하게
 • 따옴표나 기호 없이 질문만`;
 
-  const raw = await callClaude(prompt, 150);
+  const raw = await callGemini(prompt, 150);
   return raw.replace(/^["「『【\[]\s*|\s*["」』】\]]\s*$/g,'').replace(/^Q\d+[:：]\s*/,'').trim();
 }
 
@@ -1525,7 +1529,7 @@ async function evalQwithAI(question, answer, situation, diff, qt, unit){
 JSON만 출력(마크다운 없이):
 {"fb":"즉시피드백_구체적개선사항_35자이내","sc":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0}}
 각 항목 0~100 정수.`;
-  const text = await callClaude(prompt, 400);
+  const text = await callGemini(prompt, 400);
   return JSON.parse(text);
 }
 
@@ -1552,7 +1556,7 @@ ${evSum}
 
 JSON만 출력(마크다운 없이):
 {"ts":0,"gr":"A","gc":"총평8자이내","oc":"종합평가40자이내","cs":{"신속대응":0,"정확성":0,"태도":0,"정보보안":0,"홍보계보고":0},"st":["강점1","강점2"],"im":["개선점1","개선점2","개선점3"],"mp":["모범패턴1","모범패턴2"]}`;
-  const text = await callClaude(prompt, 1000);
+  const text = await callGemini(prompt, 1000);
   return JSON.parse(text);
 }
 
@@ -1668,10 +1672,7 @@ async function nextQ(){
   ci.disabled=true; cs.disabled=true;
 
   if(A.dynamicQ){
-    /* ── AI 즉흥 출제 모드 ── */
     const sc = A.mode==='general'?G[A.gi]:U[A.ui];
-
-    // 타이핑 중 애니메이션 버블
     const wrap = document.getElementById('msgs');
     const typingBbl = document.createElement('div');
     typingBbl.className = 'bbl bbl-reporter typing';
@@ -1680,18 +1681,14 @@ async function nextQ(){
     const sa=document.getElementById('chat-scroll');
     setTimeout(()=>sa.scrollTop=sa.scrollHeight,50);
 
-    // 이전 Q&A 컨텍스트
     const prevQA = A.qs.slice(0, A.pos).map((q,i)=>({q:q?q.q:'', a:A.ans[i]||''}));
-    // 랜덤 모드면 qt를 랜덤 선택
     const qtKey = A.qt===3 ? ['attack','info','sns'][Math.floor(Math.random()*3)] : ['attack','info','sns'][A.qt];
 
     try{
       const unit = A.mode==='unit'?sc.unit:'';
       const genQ = await generateDynamicQuestion(A.pos, sc.s, sc.n, A.diff, unit, prevQA, qtKey);
       typingBbl.remove();
-      if(!A.qs[A.pos]) A.qs[A.pos]={q:genQ,k:qtKey};
-      else A.qs[A.pos]={q:genQ,k:qtKey};
-      // 실제 질문 버블
+      A.qs[A.pos] = {q:genQ, k:qtKey};
       const qBbl = document.createElement('div');
       qBbl.className = 'bbl bbl-reporter';
       qBbl.innerHTML = '<div class="rlabel">📰 기자 / 민원인 <span class="ai-badge">✨ AI</span></div>'+esc(genQ);
@@ -1699,17 +1696,23 @@ async function nextQ(){
       setTimeout(()=>sa.scrollTop=sa.scrollHeight,50);
     } catch(e){
       typingBbl.remove();
-      console.warn('AI 질문 생성 실패, 기존 풀 사용:', e.message);
-      // 폴백: 기존 풀에서 사용
-      if(A.qs[A.pos]) bbl('reporter', A.qs[A.pos].q);
-      else bbl('system','⚠️ 질문 생성에 실패했습니다. 다시 시도해주세요.');
+      console.warn('AI 질문 생성 실패, 고정 풀 사용:', e.message);
+      // 고정 문제은행에서 폴백 질문 가져오기
+      const fallbackQs = buildQsFixed();
+      const fallbackQ = fallbackQs[A.pos] || fallbackQs[0];
+      A.qs[A.pos] = fallbackQ;
+      const qBbl = document.createElement('div');
+      qBbl.className = 'bbl bbl-reporter';
+      qBbl.innerHTML = '<div class="rlabel">📰 기자 / 민원인</div>'+esc(fallbackQ.q);
+      wrap.appendChild(qBbl);
+      setTimeout(()=>sa.scrollTop=sa.scrollHeight,50);
+    } finally {
+      ci.disabled=false; cs.disabled=false; ci.focus();
     }
   } else {
-    /* ── 고정 문제은행 모드 ── */
     bbl('reporter', A.qs[A.pos].q);
+    ci.disabled=false; cs.disabled=false; ci.focus();
   }
-
-  ci.disabled=false; cs.disabled=false; ci.focus();
 }
 
 function bbl(type,text){
