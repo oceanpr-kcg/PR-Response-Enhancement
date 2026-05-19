@@ -1025,6 +1025,17 @@ body {
 
   <!-- 훈련 대상자 정보 입력 -->
   <div class="trainee-card">
+    <!-- AI 연결 진단 -->
+    <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.15)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+        <div style="display:flex;align-items:center;gap:7px;flex:1">
+          <div id="api-dot" style="width:10px;height:10px;border-radius:50%;background:#888;flex-shrink:0"></div>
+          <div id="api-msg" style="font-size:0.72rem;color:rgba(255,255,255,.75);line-height:1.4">AI 연결 미확인</div>
+        </div>
+        <button onclick="runApiDiag()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:7px;padding:5px 11px;font-size:0.7rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">진단</button>
+      </div>
+      <div id="api-detail" style="display:none;margin-top:8px;background:rgba(0,0,0,.25);border-radius:7px;padding:8px 10px;font-size:0.68rem;color:rgba(255,255,255,.65);line-height:1.7;word-break:break-all"></div>
+    </div>
     <div class="tc-title">🪪 훈련 대상자 정보</div>
     <div class="trainee-fields">
       <div class="tf-group">
@@ -1319,6 +1330,58 @@ async function callGemini(prompt, maxTokens=800){
   }
   const d = await r.json();
   return (d.candidates?.[0]?.content?.parts?.[0]?.text||'').trim().replace(/```json|```/g,'').trim();
+}
+
+/* ─── API 진단 함수 ─────────────────────── */
+async function runApiDiag(){
+  const dot = document.getElementById('api-dot');
+  const msg = document.getElementById('api-msg');
+  const detail = document.getElementById('api-detail');
+  detail.style.display = 'block';
+  dot.style.background = '#f8d060';
+  msg.textContent = '연결 테스트 중…';
+  detail.textContent = '';
+
+  const info = [];
+  info.push('키 앞 6자: ' + GEMINI_KEY.slice(0,6) + '...');
+  info.push('실행 환경: ' + location.href);
+  detail.textContent = info.join('\n');
+
+  try {
+    const r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+      { method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contents:[{parts:[{text:'테스트: 숫자 1만 출력'}]}],
+          generationConfig:{maxOutputTokens:5}
+        })
+      }
+    );
+    info.push('HTTP 상태: ' + r.status + ' ' + r.statusText);
+    const body = await r.json();
+    if(r.ok){
+      const txt = body.candidates?.[0]?.content?.parts?.[0]?.text || '(응답 없음)';
+      info.push('응답: ' + txt);
+      dot.style.background = '#5fe89c';
+      msg.textContent = '✅ Gemini 연결 성공 — AI 즉흥 출제 사용 가능';
+    } else {
+      const errMsg = body.error?.message || JSON.stringify(body);
+      info.push('오류 내용: ' + errMsg);
+      dot.style.background = '#f87070';
+      msg.textContent = '❌ API 오류 — 아래 내용 확인';
+    }
+  } catch(e) {
+    info.push('네트워크 오류: ' + e.message);
+    info.push('');
+    info.push('가능한 원인:');
+    if(location.protocol === 'file:') info.push('• file:// 환경 — 브라우저가 외부 API 차단');
+    if(location.hostname.includes('github.io')) info.push('• GitHub Pages 네트워크 정상 — API 키 문제일 수 있음');
+    info.push('• 네트워크/방화벽이 googleapis.com 차단');
+    dot.style.background = '#f87070';
+    msg.textContent = '❌ 연결 실패 — 아래 원인 확인';
+  }
+  detail.textContent = info.join('\n');
 }
 
 /* ─── 출제 방식 선택 ────────────────────── */
