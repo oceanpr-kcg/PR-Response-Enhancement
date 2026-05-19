@@ -1368,17 +1368,6 @@ ${prevCtx}
   return raw.replace(/^["「『【\[]\s*|\s*["」』】\]]\s*$/g,'').replace(/^Q\d+[:：]\s*/,'').trim();
 }
 
-/* ─── AI 즉시 피드백 생성 (evalQ) ─────── */
-async function evalQ(question, answer, situation, diff, qt, unit){
-  if(A.geminiKey){
-    try{
-      return await evalQwithAI(question, answer, situation, diff, qt, unit);
-    } catch(e){
-      console.warn('Gemini 평가 실패, 로컬 폴백:', e.message);
-    }
-  }
-  return localEval(question, answer, diff, qt);
-}
 
 /* ─── 관리자 기록 저장 ──────────────────── */
 const ADMIN_PW = 'coast2024';  // ← 관리자 비밀번호 (필요시 변경)
@@ -1678,7 +1667,7 @@ async function nextQ(){
   const cs=document.getElementById('chat-send');
   ci.disabled=true; cs.disabled=true;
 
-  if(A.dynamicQ && A.geminiKey){
+  if(A.dynamicQ){
     /* ── AI 즉흥 출제 모드 ── */
     const sc = A.mode==='general'?G[A.gi]:U[A.ui];
 
@@ -1754,24 +1743,28 @@ async function sendAns(){
   const q=A.qs[A.pos];
   const ld=bbl('system','');
   ld.innerHTML='<span class="ld">AI 채점 중</span>';
+  let ev;
+  try{
+    ev = await evalQ(q?q.q:'', text, sc.s, A.diff, q?q.k:'attack', A.mode==='unit'?sc.unit:'');
+  } catch(e){
+    console.warn('evalQ 오류, 로컬 폴백:', e.message);
+    ev = localEval(q?q.q:'', text, A.diff, q?q.k:'attack');
+  }
   ld.remove();
-  if(document.getElementById('hint-chk').checked) bbl('hint',ev.fb);
+  if(document.getElementById('hint-chk').checked && ev && ev.fb) bbl('hint', ev.fb);
   A.evs.push(ev);
   A.pos++;
-  setTimeout(nextQ,600);
+  setTimeout(nextQ, 600);
 }
 
 /* ─── 평가 함수 — AI 우선, 로컬 폴백 ─── */
 async function evalQ(question, answer, situation, diff, qt, unit){
-  if(A.evalMode==='ai' && A.geminiKey){
-    try{
-      return await evalQwithAI(question, answer, situation, diff, qt, unit);
-    } catch(e){
-      console.warn('Gemini 평가 실패, 로컬 폴백:', e.message);
-      return localEval(question, answer, diff, qt);
-    }
+  try{
+    return await evalQwithAI(question, answer, situation, diff, qt, unit);
+  } catch(e){
+    console.warn('AI 평가 실패, 로컬 폴백:', e.message);
+    return localEval(question, answer, diff, qt);
   }
-  return localEval(question, answer, diff, qt);
 }
 
 function localEval(question, answer, diff, qt){
@@ -1916,16 +1909,14 @@ async function finish(){
   document.getElementById('chat-send').disabled=true;
   const ld=bbl('system','');
   ld.innerHTML='<span class="ld">종합 평가 생성 중</span>';
-  if(A.evalMode==='ai' && A.geminiKey){
-    try{
-      const j = await evalFinalWithAI();
-      ld.remove();
-      renderRes(j);
-      return;
-    } catch(e){
-      console.warn('Gemini 종합평가 실패, 로컬 폴백:', e.message);
-      bbl('system','⚠️ AI 종합평가 실패 → 로컬 평가로 대체합니다.');
-    }
+  try{
+    const j = await evalFinalWithAI();
+    ld.remove();
+    renderRes(j);
+    return;
+  } catch(e){
+    console.warn('AI 종합평가 실패, 로컬 폴백:', e.message);
+    bbl('system','⚠️ AI 종합평가 실패 → 로컬 평가로 대체합니다.');
   }
   ld.remove();
   fallback();
