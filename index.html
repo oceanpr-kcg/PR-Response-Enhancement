@@ -1294,19 +1294,28 @@ let A={mode:'general',gi:-1,ui:-1,diff:0,qt:-1,qs:[],pos:0,ans:[],evs:[],evalMod
 
 /* ─── Gemini API 호출 ───────────────────── */
 async function callGemini(prompt, maxTokens=800){
-  const r = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
-    { method:'POST',
-      headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({
-        contents:[{parts:[{text:prompt}]}],
-        generationConfig:{maxOutputTokens:maxTokens, temperature:0.9}
-      })
-    }
-  );
+  let r;
+  try {
+    r = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_KEY}`,
+      { method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          contents:[{parts:[{text:prompt}]}],
+          generationConfig:{maxOutputTokens:maxTokens, temperature:0.9}
+        })
+      }
+    );
+  } catch(netErr){
+    console.error('[Gemini 네트워크 오류]', netErr.message);
+    throw new Error('네트워크 오류: ' + netErr.message);
+  }
   if(!r.ok){
-    const e = await r.json().catch(()=>({}));
-    throw new Error(e.error?.message || 'Gemini 오류 ' + r.status);
+    let errBody = {};
+    try { errBody = await r.json(); } catch(_){}
+    const msg = errBody.error?.message || ('HTTP ' + r.status);
+    console.error('[Gemini HTTP 오류]', r.status, msg);
+    throw new Error('Gemini ' + r.status + ': ' + msg);
   }
   const d = await r.json();
   return (d.candidates?.[0]?.content?.parts?.[0]?.text||'').trim().replace(/```json|```/g,'').trim();
@@ -2154,18 +2163,32 @@ setQMode('ai', document.getElementById('qmode-ai'));
 
 </div><!-- /screen-admin -->
 <script>
+// 기존 캐시된 서비스 워커 제거 (이전 버전 충돌 방지)
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.getRegistrations().then(regs=>{
+    regs.forEach(r=>r.unregister());
+  });
+  caches.keys().then(keys=>{
+    keys.forEach(k=>caches.delete(k));
+  });
+}
+</script>
+<script>
 if('serviceWorker' in navigator){
   const swCode=`
 self.addEventListener('install',e=>self.skipWaiting());
 self.addEventListener('activate',e=>clients.claim());
 self.addEventListener('fetch',e=>{
-  if(e.request.method!=='GET') return;
+  const url = e.request.url;
+  // API 호출(Gemini 등 외부 도메인)은 서비스 워커 개입 없이 그대로 통과
+  if(e.request.method !== 'GET') return;
+  if(url.includes('googleapis.com') || url.includes('anthropic.com')) return;
   e.respondWith(
     caches.open('cg-v1').then(c=>
       c.match(e.request).then(r=>r||fetch(e.request).then(res=>{
-        if(res.ok) c.put(e.request,res.clone());
+        if(res.ok && res.type === 'basic') c.put(e.request,res.clone());
         return res;
-      }))
+      }).catch(()=>fetch(e.request)))
     )
   );
 });`;
