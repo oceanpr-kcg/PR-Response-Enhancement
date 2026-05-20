@@ -1287,49 +1287,36 @@ const DN=['','🟢초급','🟡중급','🔴고급'];
 const TQ=5;
 
 /* ─── STATE ──────────────────────────────── */
-/* ─── Gemini API 키 (내장) ──────────────── */
-const GEMINI_KEY = 'AIzaSyCWsykMZj6qVrLDRRWDYToSDqktyRY-WyY';
 
 let A={mode:'general',gi:-1,ui:-1,diff:0,qt:-1,qs:[],pos:0,ans:[],evs:[],evalMode:'ai',trainee:null,dynamicQ:true};
 
-/* ─── Gemini API 호출 ───────────────────── */
+/* ─── Cloudflare Worker URL ─────────────── */
+// 배포 후 본인 Worker URL로 교체하세요
+// 예: https://gemini-proxy.본인아이디.workers.dev
+const WORKER_URL = 'https://kcg.pr-response-enhancement.workers.dev';
+
+/* ─── API 호출 (Worker 경유) ────────────── */
 async function callGemini(prompt, maxTokens=800){
-  const models = [
-    'gemini-1.5-flash',
-    'gemini-1.5-flash-8b',
-    'gemini-1.0-pro'
-  ];
-  let lastErr = null;
-  for(const model of models){
-    let r;
-    try {
-      r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
-        { method:'POST',
-          headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({
-            contents:[{parts:[{text:prompt}]}],
-            generationConfig:{maxOutputTokens:maxTokens, temperature:0.9}
-          })
-        }
-      );
-    } catch(netErr){
-      console.error('[Gemini 네트워크 오류]', netErr.message);
-      throw new Error('네트워크 오류: ' + netErr.message);
-    }
-    if(r.ok){
-      const d = await r.json();
-      return (d.candidates?.[0]?.content?.parts?.[0]?.text||'').trim().replace(/```json|```/g,'').trim();
-    }
+  let r;
+  try {
+    r = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ prompt, maxTokens })
+    });
+  } catch(netErr){
+    console.error('[Worker 네트워크 오류]', netErr.message);
+    throw new Error('네트워크 오류: ' + netErr.message);
+  }
+  if(!r.ok){
     let errBody = {};
     try { errBody = await r.json(); } catch(_){}
     const msg = errBody.error?.message || ('HTTP ' + r.status);
-    console.warn(`[Gemini ${model} 실패]`, r.status, msg);
-    lastErr = new Error(`${model} ${r.status}: ${msg}`);
-    // 429(할당량) 또는 404(모델없음)면 다음 모델 시도
-    if(r.status !== 429 && r.status !== 404) throw lastErr;
+    console.error('[Worker HTTP 오류]', r.status, msg);
+    throw new Error('API 오류 ' + r.status + ': ' + msg);
   }
-  throw lastErr || new Error('모든 모델 실패');
+  const d = await r.json();
+  return d.text || '';
 }
 
 /* ─── API 진단 함수 ─────────────────────── */
@@ -1342,51 +1329,51 @@ async function runApiDiag(){
 
   if(btn){ btn.disabled=true; btn.textContent='진단 중…'; }
   dot.style.background = '#f8d060';
-  msg.textContent = '모델별 연결 테스트 중…';
+  msg.textContent = 'Worker 연결 테스트 중…';
   detail.style.display = 'block';
 
-  const models = ['gemini-1.5-flash','gemini-1.5-flash-8b','gemini-1.0-pro','gemini-2.0-flash'];
   const info = [];
-  info.push('키 앞 6자: ' + GEMINI_KEY.slice(0,6) + '...');
+  info.push('Worker URL: ' + WORKER_URL);
   info.push('환경: ' + location.hostname);
   info.push('─────────────────────');
   detail.textContent = info.join('\n');
 
-  let anyOk = false;
-  for(const model of models){
-    try {
-      const r = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_KEY}`,
-        { method:'POST', headers:{'Content-Type':'application/json'},
-          body: JSON.stringify({contents:[{parts:[{text:'1'}]}],generationConfig:{maxOutputTokens:3}})
-        }
-      );
-      let body={};
-      try{ body=await r.json(); }catch(_){}
-      if(r.ok){
-        info.push(`✅ ${model} — 정상`);
-        anyOk = true;
-      } else {
-        const em = body.error?.message?.slice(0,80)||('HTTP '+r.status);
-        info.push(`❌ ${model} — ${r.status}: ${em}`);
-      }
-    } catch(e){
-      info.push(`❌ ${model} — 네트워크: ${e.message}`);
-    }
+  if(WORKER_URL.includes('여기에_워커_URL_입력')){
+    dot.style.background = '#f87070';
+    msg.textContent = '❌ Worker URL이 설정되지 않았습니다';
+    info.push('→ index.html의 WORKER_URL을 실제 URL로 교체하세요');
     detail.textContent = info.join('\n');
+    if(btn){ btn.disabled=false; btn.textContent='재진단'; }
+    return;
   }
 
-  info.push('─────────────────────');
-  if(anyOk){
-    dot.style.background = '#5fe89c';
-    msg.textContent = '✅ AI 즉흥 출제 사용 가능';
-    info.push('→ 사용 가능한 모델로 자동 전환됩니다');
-  } else {
+  try {
+    const r = await fetch(WORKER_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({ prompt: '숫자 1만 출력', maxTokens: 5 })
+    });
+    let body = {};
+    try{ body = await r.json(); }catch(_){}
+    info.push('HTTP 상태: ' + r.status);
+
+    if(r.ok){
+      info.push('응답: ' + (body.text||'(없음)'));
+      info.push('✅ Worker + Gemini 연결 성공!');
+      dot.style.background = '#5fe89c';
+      msg.textContent = '✅ AI 즉흥 출제 사용 가능';
+    } else {
+      const em = body.error?.message || JSON.stringify(body).slice(0,150);
+      info.push('오류: ' + em);
+      dot.style.background = '#f87070';
+      msg.textContent = '❌ 오류 ' + r.status + ' — 아래 내용 확인';
+    }
+  } catch(e) {
+    info.push('연결 오류: ' + e.message);
     dot.style.background = '#f87070';
-    msg.textContent = '❌ 모든 모델 실패 — 아래 원인 확인';
-    info.push('→ API 키 재발급 또는 Google 결제 설정 필요');
-    info.push('→ aistudio.google.com/app/apikey');
+    msg.textContent = '❌ Worker 연결 실패 — URL 확인 필요';
   }
+
   detail.textContent = info.join('\n');
   if(btn){ btn.disabled=false; btn.textContent='재진단'; }
 }
