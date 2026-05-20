@@ -1025,17 +1025,6 @@ body {
 
   <!-- 훈련 대상자 정보 입력 -->
   <div class="trainee-card">
-    <!-- AI 연결 진단 -->
-    <div style="margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid rgba(255,255,255,.15)">
-      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-        <div style="display:flex;align-items:center;gap:7px;flex:1">
-          <div id="api-dot" style="width:10px;height:10px;border-radius:50%;background:#888;flex-shrink:0"></div>
-          <div id="api-msg" style="font-size:0.72rem;color:rgba(255,255,255,.75);line-height:1.4">AI 연결 미확인</div>
-        </div>
-        <button onclick="runApiDiag()" style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:7px;padding:5px 11px;font-size:0.7rem;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap">진단</button>
-      </div>
-      <div id="api-detail" style="display:none;margin-top:8px;background:rgba(0,0,0,.25);border-radius:7px;padding:8px 10px;font-size:0.68rem;color:rgba(255,255,255,.65);line-height:1.7;word-break:break-all"></div>
-    </div>
     <div class="tc-title">🪪 훈련 대상자 정보</div>
     <div class="trainee-fields">
       <div class="tf-group">
@@ -1299,7 +1288,7 @@ const TQ=5;
 
 /* ─── STATE ──────────────────────────────── */
 /* ─── Gemini API 키 (내장) ──────────────── */
-const GEMINI_KEY = 'AIzaSyCilkPfzyHKUNPcKejNW5UGvRKN7D8VQlE';
+const GEMINI_KEY = 'AIzaSyDL4hB5uMPX9-IRoLBryqjHkBN7x9WdJSI';
 
 let A={mode:'general',gi:-1,ui:-1,diff:0,qt:-1,qs:[],pos:0,ans:[],evs:[],evalMode:'ai',trainee:null,dynamicQ:true};
 
@@ -2217,6 +2206,22 @@ setQMode('ai', document.getElementById('qmode-ai'));
       <div class="astat"><div class="as-num" id="adm-total">0</div><div class="as-lbl">총 훈련 수</div></div>
       <div class="astat"><div class="as-num" id="adm-avg">-</div><div class="as-lbl">평균 점수</div></div>
       <div class="astat"><div class="as-num" id="adm-top">-</div><div class="as-lbl">최고 점수</div></div>
+    </div>
+
+    <!-- API 진단 -->
+    <div style="margin:12px 14px 0;background:#1a2a3a;border:1px solid #2a4a6a;border-radius:var(--r);padding:12px 14px">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px">
+        <div style="font-size:0.78rem;font-weight:700;color:#fff">🔑 Gemini API 연결 진단</div>
+        <button onclick="runApiDiag()" id="diag-run-btn"
+          style="background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.25);color:#fff;border-radius:7px;padding:5px 14px;font-size:0.72rem;font-weight:700;cursor:pointer;font-family:inherit">
+          진단 실행
+        </button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <div id="diag-dot" style="width:10px;height:10px;border-radius:50%;background:#555;flex-shrink:0"></div>
+        <div id="diag-msg" style="font-size:0.75rem;color:rgba(255,255,255,.75);font-weight:600">진단 실행 버튼을 눌러주세요</div>
+      </div>
+      <div id="diag-detail" style="display:none;background:rgba(0,0,0,.3);border-radius:7px;padding:9px 11px;font-size:0.69rem;color:rgba(255,255,255,.6);line-height:1.8;word-break:break-all;white-space:pre-wrap"></div>
     </div>
     <div class="admin-records" id="admin-records-list"></div>
     <div class="bottom-bar">
